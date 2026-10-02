@@ -90,6 +90,10 @@ CUSTOM_EMOJIS = {
     "globe": '<tg-emoji emoji-id="6057443049020071219">🌐</tg-emoji>',
     "cross": '<tg-emoji emoji-id="6111658378247806635">❌</tg-emoji>',
     "ping": '<tg-emoji emoji-id="6060045064762039982">⏲</tg-emoji>',
+    "wireguard": '<tg-emoji emoji-id="6165512058344318397">🐉</tg-emoji>',
+    "openvpn": '<tg-emoji emoji-id="6165724869678866601">🔐</tg-emoji>',
+    "amneziawg": '<tg-emoji emoji-id="6165519909544534378">🛡</tg-emoji>',
+    "raspberrypi": '<tg-emoji emoji-id="6165792622787961093">🍓</tg-emoji>',
 }
 
 EMOJI_SIGNAL = CUSTOM_EMOJIS["signal"]
@@ -100,6 +104,10 @@ EMOJI_STATS = CUSTOM_EMOJIS["stats"]
 EMOJI_GLOBE = CUSTOM_EMOJIS["globe"]
 EMOJI_CROSS = CUSTOM_EMOJIS["cross"]
 EMOJI_PING = CUSTOM_EMOJIS["ping"]
+EMOJI_WIREGUARD = CUSTOM_EMOJIS["wireguard"]
+EMOJI_OPENVPN = CUSTOM_EMOJIS["openvpn"]
+EMOJI_AMNEZIAWG = CUSTOM_EMOJIS["amneziawg"]
+EMOJI_RPI = CUSTOM_EMOJIS["raspberrypi"]
 GOODWIFI_CONF = "/etc/goodwifi/goodwifi.conf"
 
 
@@ -917,7 +925,7 @@ def print_status(status: HotspotStatus, telegram_format: bool = False) -> str:
     if telegram_format:
         # HTML Formatting for Telegram with Premium Custom Emojis
         lines = []
-        lines.append(f"<b>{EMOJI_SIGNAL} HOTSPOT STATUS</b>")
+        lines.append(f"<b>{EMOJI_RPI} HOTSPOT STATUS</b>")
         lines.append("")
 
         # Services
@@ -934,12 +942,25 @@ def print_status(status: HotspotStatus, telegram_format: bool = False) -> str:
         lines.append("")
 
         # VPN
-        lines.append(f"<b>{EMOJI_LOCK} VPN:</b>")
         vpn_connected = status["vpn"]["connected"]
         icon = EMOJI_CHECK if vpn_connected else EMOJI_CROSS
         backend = status["vpn"].get("backend", "VPN")
         iface = status["vpn"].get("interface", "unknown")
-        conn_info = f"({backend} / <code>{iface}</code>)"
+
+        vpn_header_emoji = EMOJI_LOCK
+        conn_badge = backend
+        if "amnezia" in backend.lower() or iface == "awg0":
+            vpn_header_emoji = EMOJI_AMNEZIAWG
+            conn_badge = f"{EMOJI_AMNEZIAWG} AmneziaWG"
+        elif "wireguard" in backend.lower() or iface == "wg0":
+            vpn_header_emoji = EMOJI_WIREGUARD
+            conn_badge = f"{EMOJI_WIREGUARD} WireGuard"
+        elif "openvpn" in backend.lower() or iface == "tun0":
+            vpn_header_emoji = EMOJI_OPENVPN
+            conn_badge = f"{EMOJI_OPENVPN} OpenVPN"
+
+        lines.append(f"<b>{vpn_header_emoji} VPN:</b>")
+        conn_info = f"({conn_badge} / <code>{iface}</code>)"
         lines.append(f"{icon} Connected: <code>{vpn_connected}</code> {conn_info}")
         if vpn_connected:
             if status["vpn"].get("ip"):

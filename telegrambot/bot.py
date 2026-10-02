@@ -6,6 +6,7 @@ import logging
 import subprocess
 import json
 import threading
+import html
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import List
 from telegram import (
@@ -40,13 +41,23 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SCRIPT_PATH = os.path.join(SCRIPT_DIR, "hotspot-manager.py")
 
 
-# Premium Custom Emoji IDs
+# Premium Custom Emoji IDs (used for button icons)
 EMOJI_STATS = "6143449494244563627"  # 📶 / 📊 Stats
 EMOJI_CLIENTS = "6127157759872868272"  # 📡 Signal / Clients
 EMOJI_REFRESH = "6057439501377085156"  # 🔄 Refresh / Restart
 EMOJI_LOCK = "6059947491695008618"  # 🔒 Lock / VPN
 EMOJI_TOOLS = "6141134446742478627"  # 🔧 Tools / Fix
 EMOJI_HELP = "6307322000033458270"  # 📔 Book / Help
+EMOJI_WIREGUARD = "6165512058344318397"  # 🐉 WireGuard
+EMOJI_OPENVPN = "6165724869678866601"  # 🔐 OpenVPN
+EMOJI_AMNEZIAWG = "6165519909544534378"  # 🛡 AmneziaWG
+EMOJI_RPI = "6165792622787961093"  # 🍓 Raspberry Pi
+
+# HTML formatted Telegram Premium Custom Emojis (for in-text messages)
+TG_EMOJI_WIREGUARD = f'<tg-emoji emoji-id="{EMOJI_WIREGUARD}">🐉</tg-emoji>'
+TG_EMOJI_OPENVPN = f'<tg-emoji emoji-id="{EMOJI_OPENVPN}">🔐</tg-emoji>'
+TG_EMOJI_AMNEZIAWG = f'<tg-emoji emoji-id="{EMOJI_AMNEZIAWG}">🛡</tg-emoji>'
+TG_EMOJI_RPI = f'<tg-emoji emoji-id="{EMOJI_RPI}">🍓</tg-emoji>'
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
@@ -55,12 +66,12 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
             KeyboardButton("Clients", icon_custom_emoji_id=EMOJI_CLIENTS),
         ],
         [
-            KeyboardButton("Restart", icon_custom_emoji_id=EMOJI_REFRESH),
-            KeyboardButton("Restart VPN", icon_custom_emoji_id=EMOJI_LOCK),
+            KeyboardButton("Restart", icon_custom_emoji_id=EMOJI_RPI),
+            KeyboardButton("Restart VPN", icon_custom_emoji_id=EMOJI_AMNEZIAWG),
         ],
         [
             KeyboardButton("Fix", icon_custom_emoji_id=EMOJI_TOOLS),
-            KeyboardButton("Switch VPN", icon_custom_emoji_id=EMOJI_REFRESH),
+            KeyboardButton("Switch VPN", icon_custom_emoji_id=EMOJI_WIREGUARD),
         ],
         [
             KeyboardButton("IPv6 Mode", icon_custom_emoji_id=EMOJI_TOOLS),
@@ -169,13 +180,13 @@ def make_status_keyboard(status_text: str) -> InlineKeyboardMarkup:
         switch_btn = InlineKeyboardButton(
             "Switch to OpenVPN (tun0)",
             callback_data="switch_tun0",
-            icon_custom_emoji_id=EMOJI_REFRESH,
+            icon_custom_emoji_id=EMOJI_OPENVPN,
         )
     else:
         switch_btn = InlineKeyboardButton(
             "Switch to AmneziaWG (awg0)",
             callback_data="switch_awg0",
-            icon_custom_emoji_id=EMOJI_LOCK,
+            icon_custom_emoji_id=EMOJI_AMNEZIAWG,
         )
 
     ipv6_btn = InlineKeyboardButton(
@@ -208,17 +219,18 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     ):
         return
 
-    help_text = """<b>Available Commands:</b>
+    help_text = f"""<b>{TG_EMOJI_RPI} GoodWifi Hotspot Manager</b>
 
-<code>status</code> - Show hotspot and VPN status
-<code>switch_vpn &lt;awg0|tun0|auto&gt;</code> - Switch active VPN backend
-<code>ipv6 &lt;drop|reject|off&gt;</code> - Configure IPv6 leak protection
-<code>adguard &lt;on|off|restart&gt;</code> - Toggle AdGuard Home service
-<code>restart</code> - Restart hotspot services
-<code>restart_vpn</code> - Restart VPN connection
-<code>fix</code> - Auto-fix common issues
-<code>clients</code> - Show connected clients
-<code>help</code> - Show this help message
+<b>Available Commands:</b>
+• <code>status</code> - Show hotspot and VPN status
+• <code>switch_vpn &lt;awg0|tun0|wg0|auto&gt;</code> - Switch active VPN backend
+• <code>ipv6 &lt;drop|reject|off&gt;</code> - Configure IPv6 leak protection
+• <code>adguard &lt;on|off|restart&gt;</code> - Toggle AdGuard Home service
+• <code>restart</code> - Restart hotspot services
+• <code>restart_vpn</code> - Restart VPN connection
+• <code>fix</code> - Auto-fix common issues
+• <code>clients</code> - Show connected clients
+• <code>help</code> - Show this help message
 
 <b>Usage:</b> Send command as plain text (no / needed)"""
 
@@ -302,9 +314,9 @@ def get_current_backend_name() -> str:
         except Exception:
             pass
     names = {
-        "awg0": "AmneziaWG (awg0)",
-        "tun0": "OpenVPN (tun0)",
-        "wg0": "WireGuard (wg0)",
+        "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
+        "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
+        "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
         "auto": "Auto",
     }
     return names.get(backend, backend)
@@ -400,7 +412,8 @@ async def adguard_menu_command(
         f"<b>🛡 AdGuard Home DNS Protection</b>\n\n"
         f"Current Status: <b>{state_str}</b>\n\n"
         f"• <b>Turn ON</b>: AdGuard Home filters DNS and blocks ads.\n"
-        f"• <b>Turn OFF</b>: AdGuard Home is stopped; dnsmasq resolves upstream DNS directly on <code>10.42.0.1:53</code>.\n\n"
+        f"• <b>Turn OFF</b>: AdGuard Home is stopped; dnsmasq resolves "
+        f"upstream DNS directly on <code>10.42.0.1:53</code>.\n\n"
         f"Choose an action below:"
     )
     if update.message:
@@ -435,7 +448,8 @@ async def adguard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             f"<b>🛡 AdGuard Home DNS Protection</b>\n\n"
             f"Current Status: <b>{state_str}</b>\n\n"
             f"• <b>Turn ON</b>: AdGuard Home filters DNS and blocks ads.\n"
-            f"• <b>Turn OFF</b>: AdGuard Home is stopped; dnsmasq resolves upstream DNS directly on <code>10.42.0.1:53</code>.\n\n"
+            f"• <b>Turn OFF</b>: AdGuard Home is stopped; dnsmasq resolves "
+            f"upstream DNS directly on <code>10.42.0.1:53</code>.\n\n"
             f"Choose an action below:"
         )
         try:
@@ -665,15 +679,20 @@ async def switch_menu_command(
             InlineKeyboardButton(
                 "AmneziaWG (awg0)",
                 callback_data="switch_awg0",
-                icon_custom_emoji_id=EMOJI_LOCK,
+                icon_custom_emoji_id=EMOJI_AMNEZIAWG,
             ),
             InlineKeyboardButton(
                 "OpenVPN (tun0)",
                 callback_data="switch_tun0",
-                icon_custom_emoji_id=EMOJI_LOCK,
+                icon_custom_emoji_id=EMOJI_OPENVPN,
             ),
         ],
         [
+            InlineKeyboardButton(
+                "WireGuard (wg0)",
+                callback_data="switch_wg0",
+                icon_custom_emoji_id=EMOJI_WIREGUARD,
+            ),
             InlineKeyboardButton(
                 "Auto (Auto Select)",
                 callback_data="switch_auto",
@@ -683,7 +702,11 @@ async def switch_menu_command(
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    text = f"<b>Select VPN Backend:</b>\n\nActive: <code>{current}</code>\n\nChoose an option below to switch:"
+    text = (
+        f"<b>Select VPN Backend:</b>\n\n"
+        f"Active: {current}\n\n"
+        f"Choose an option below to switch:"
+    )
     if update.message:
         await update.message.reply_text(
             text, reply_markup=reply_markup, parse_mode="HTML"
@@ -707,13 +730,14 @@ async def switch_vpn_callback(
 
     target = query.data.replace("switch_", "")
     names = {
-        "awg0": "AmneziaWG (awg0)",
-        "tun0": "OpenVPN (tun0)",
+        "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
+        "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
+        "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
         "auto": "Auto",
     }
     target_name = names.get(target, target)
     try:
-        await query.answer(f"Switching to {target_name}...")
+        await query.answer(f"Switching to {target}...")
     except Exception:
         pass
 
@@ -733,8 +757,12 @@ async def switch_vpn_callback(
                 parse_mode="HTML",
             )
         else:
+            fail_text = (
+                f"⚠️ <b>Failed to switch to {target_name}</b> "
+                f"(reverted to active backend)\n\n{status_text}"
+            )
             await query.edit_message_text(
-                text=f"⚠️ <b>Failed to switch to {target_name}</b> (reverted to active backend)\n\n{status_text}",
+                text=fail_text,
                 reply_markup=reply_markup,
                 parse_mode="HTML",
             )
@@ -755,14 +783,22 @@ async def switch_vpn_command(
     if target not in ["awg0", "tun0", "auto", "wg0"]:
         if update.message:
             await update.message.reply_text(
-                "Usage: <code>/switch_vpn &lt;awg0|tun0|auto&gt;</code>",
+                "Usage: <code>/switch_vpn &lt;awg0|tun0|wg0|auto&gt;</code>",
                 parse_mode="HTML",
             )
         return
 
+    target_names = {
+        "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
+        "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
+        "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
+        "auto": "Auto",
+    }
+    target_display = target_names.get(target, target)
+
     if update.message:
         await update.message.reply_text(
-            f"Switching VPN backend to <b>{target}</b>...", parse_mode="HTML"
+            f"Switching VPN backend to <b>{target_display}</b>...", parse_mode="HTML"
         )
 
     loop = asyncio.get_running_loop()
@@ -785,7 +821,9 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if update.message is None:
         return
     msg = await update.message.reply_text(
-        "Restarting Hotspot...", reply_markup=MAIN_KEYBOARD
+        f"{TG_EMOJI_RPI} <i>Restarting Hotspot...</i>",
+        reply_markup=MAIN_KEYBOARD,
+        parse_mode="HTML",
     )
     loop = asyncio.get_running_loop()
     stdout, stderr, _ = await loop.run_in_executor(
@@ -795,13 +833,18 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not response:
         response = "Hotspot services and VPN restarted."
     await asyncio.sleep(2)
+    res_text = (
+        f"<b>{TG_EMOJI_RPI} Restart Result:</b>\n" f"<pre>{html.escape(response)}</pre>"
+    )
     try:
-        await msg.edit_text(f"Restart Result:\n{response}")
+        await msg.edit_text(res_text, parse_mode="HTML")
     except Exception as e:
         logger.warning(f"Could not edit restart message, sending new reply: {e}")
         try:
             await update.message.reply_text(
-                f"Restart Result:\n{response}", reply_markup=MAIN_KEYBOARD
+                res_text,
+                reply_markup=MAIN_KEYBOARD,
+                parse_mode="HTML",
             )
         except Exception as e2:
             logger.error(f"Failed to send restart reply: {e2}")
@@ -817,7 +860,9 @@ async def restart_vpn_command(
     if update.message is None:
         return
     msg = await update.message.reply_text(
-        "Restarting VPN connection...", reply_markup=MAIN_KEYBOARD
+        f"{TG_EMOJI_AMNEZIAWG} <i>Restarting VPN connection...</i>",
+        reply_markup=MAIN_KEYBOARD,
+        parse_mode="HTML",
     )
     loop = asyncio.get_running_loop()
     stdout, stderr, _ = await loop.run_in_executor(
@@ -827,13 +872,19 @@ async def restart_vpn_command(
     if not response:
         response = "VPN connection restarted."
     await asyncio.sleep(2)
+    res_text = (
+        f"<b>{TG_EMOJI_AMNEZIAWG} Restart VPN Result:</b>\n"
+        f"<pre>{html.escape(response)}</pre>"
+    )
     try:
-        await msg.edit_text(f"Restart VPN Result:\n{response}")
+        await msg.edit_text(res_text, parse_mode="HTML")
     except Exception as e:
         logger.warning(f"Could not edit restart vpn message, sending new reply: {e}")
         try:
             await update.message.reply_text(
-                f"Restart VPN Result:\n{response}", reply_markup=MAIN_KEYBOARD
+                res_text,
+                reply_markup=MAIN_KEYBOARD,
+                parse_mode="HTML",
             )
         except Exception as e2:
             logger.error(f"Failed to send restart vpn reply: {e2}")
@@ -847,7 +898,9 @@ async def fix_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if update.message is None:
         return
     msg = await update.message.reply_text(
-        "Running auto-fix for hotspot and VPN...", reply_markup=MAIN_KEYBOARD
+        "🔧 <i>Running auto-fix for hotspot and VPN...</i>",
+        reply_markup=MAIN_KEYBOARD,
+        parse_mode="HTML",
     )
     loop = asyncio.get_running_loop()
     stdout, stderr, _ = await loop.run_in_executor(None, run_hotspot_command, ["--fix"])
@@ -856,12 +909,17 @@ async def fix_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         response = "Auto-fix completed."
     await asyncio.sleep(2)
     try:
-        await msg.edit_text(f"Fix Result:\n{response}")
+        await msg.edit_text(
+            f"<b>🔧 Fix Result:</b>\n<pre>{html.escape(response)}</pre>",
+            parse_mode="HTML",
+        )
     except Exception as e:
         logger.warning(f"Could not edit fix message, sending new reply: {e}")
         try:
             await update.message.reply_text(
-                f"Fix Result:\n{response}", reply_markup=MAIN_KEYBOARD
+                f"<b>🔧 Fix Result:</b>\n<pre>{html.escape(response)}</pre>",
+                reply_markup=MAIN_KEYBOARD,
+                parse_mode="HTML",
             )
         except Exception as e2:
             logger.error(f"Failed to send fix reply: {e2}")
@@ -960,6 +1018,8 @@ async def handle_text_message(
             context.args = ["awg0"]
         elif text == "switch_tun":
             context.args = ["tun0"]
+        elif text == "switch_wg":
+            context.args = ["wg0"]
         else:
             context.args = ["auto"]
         await switch_vpn_command(update, context)
@@ -988,7 +1048,7 @@ def main():
 
         app.add_handler(
             CallbackQueryHandler(
-                switch_vpn_callback, pattern="^switch_(awg0|tun0|auto)$"
+                switch_vpn_callback, pattern="^switch_(awg0|tun0|wg0|auto)$"
             )
         )
         app.add_handler(
