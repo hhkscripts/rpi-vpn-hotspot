@@ -155,7 +155,10 @@ def run_hotspot_command(args: List[str]):
 
 
 async def get_status_text() -> str:
-    stdout, stderr, code = run_hotspot_command(["--status", "--html"])
+    loop = asyncio.get_running_loop()
+    stdout, stderr, code = await loop.run_in_executor(
+        None, run_hotspot_command, ["--status", "--html"]
+    )
     if code != 0 and not stdout:
         return f"Error getting status:\n{stderr}"
     return stdout if stdout else "No output from hotspot manager."
@@ -243,7 +246,9 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     reply_markup = make_status_keyboard(status_text)
 
     if update.message is not None:
-        if context.user_data is not None and not context.user_data.get("keyboard_v2_adguard"):
+        if context.user_data is not None and not context.user_data.get(
+            "keyboard_v2_adguard"
+        ):
             context.user_data["keyboard_v2_adguard"] = True
             await update.message.reply_text(
                 "GoodWifi Hotspot Manager", reply_markup=MAIN_KEYBOARD
@@ -509,7 +514,9 @@ async def adguard_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     if update.message:
-        msg = await update.message.reply_text(f"⏳ <i>{wait_text}</i>", parse_mode="HTML")
+        msg = await update.message.reply_text(
+            f"⏳ <i>{wait_text}</i>", parse_mode="HTML"
+        )
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, run_hotspot_command, ["--adguard", arg])
         status_text = await get_status_text()
@@ -603,7 +610,8 @@ async def ipv6_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     except Exception:
         pass
 
-    run_hotspot_command(["--set-ipv6", mode])
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, run_hotspot_command, ["--set-ipv6", mode])
     await asyncio.sleep(1)
     status_text = await get_status_text()
     reply_markup = make_status_keyboard(status_text)
@@ -630,7 +638,8 @@ async def ipv6_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await ipv6_menu_command(update, context)
         return
 
-    run_hotspot_command(["--set-ipv6", target])
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, run_hotspot_command, ["--set-ipv6", target])
     await asyncio.sleep(1)
     status_text = await get_status_text()
     reply_markup = make_status_keyboard(status_text)
@@ -708,17 +717,27 @@ async def switch_vpn_callback(
     except Exception:
         pass
 
-    run_hotspot_command(["--switch-vpn", target])
+    loop = asyncio.get_running_loop()
+    _, _, code = await loop.run_in_executor(
+        None, run_hotspot_command, ["--switch-vpn", target]
+    )
     await asyncio.sleep(2)
     status_text = await get_status_text()
     reply_markup = make_status_keyboard(status_text)
 
     try:
-        await query.edit_message_text(
-            text=f"<b>Switched to {target_name}!</b>\n\n{status_text}",
-            reply_markup=reply_markup,
-            parse_mode="HTML",
-        )
+        if code == 0:
+            await query.edit_message_text(
+                text=f"<b>Switched to {target_name}!</b>\n\n{status_text}",
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
+        else:
+            await query.edit_message_text(
+                text=f"⚠️ <b>Failed to switch to {target_name}</b> (reverted to active backend)\n\n{status_text}",
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
     except Exception as e:
         if "not modified" not in str(e).lower():
             logger.warning(f"Could not edit message after switch: {e}")
@@ -746,7 +765,9 @@ async def switch_vpn_command(
             f"Switching VPN backend to <b>{target}</b>...", parse_mode="HTML"
         )
 
-    run_hotspot_command(["--switch-vpn", target])
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, run_hotspot_command, ["--switch-vpn", target])
+    await asyncio.sleep(2)
     status_text = await get_status_text()
     reply_markup = make_status_keyboard(status_text)
 
@@ -766,9 +787,24 @@ async def restart_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     msg = await update.message.reply_text(
         "Restarting Hotspot...", reply_markup=MAIN_KEYBOARD
     )
-    stdout, stderr, _ = run_hotspot_command(["--restart"])
-    response = stdout if stdout else stderr
-    await msg.edit_text(f"Restart Result:\n{response}")
+    loop = asyncio.get_running_loop()
+    stdout, stderr, _ = await loop.run_in_executor(
+        None, run_hotspot_command, ["--restart"]
+    )
+    response = (stdout if stdout else stderr).strip()
+    if not response:
+        response = "Hotspot services and VPN restarted."
+    await asyncio.sleep(2)
+    try:
+        await msg.edit_text(f"Restart Result:\n{response}")
+    except Exception as e:
+        logger.warning(f"Could not edit restart message, sending new reply: {e}")
+        try:
+            await update.message.reply_text(
+                f"Restart Result:\n{response}", reply_markup=MAIN_KEYBOARD
+            )
+        except Exception as e2:
+            logger.error(f"Failed to send restart reply: {e2}")
 
 
 async def restart_vpn_command(
@@ -783,9 +819,24 @@ async def restart_vpn_command(
     msg = await update.message.reply_text(
         "Restarting VPN connection...", reply_markup=MAIN_KEYBOARD
     )
-    stdout, stderr, _ = run_hotspot_command(["--restart-vpn"])
-    response = stdout if stdout else stderr
-    await msg.edit_text(f"Restart VPN Result:\n{response}")
+    loop = asyncio.get_running_loop()
+    stdout, stderr, _ = await loop.run_in_executor(
+        None, run_hotspot_command, ["--restart-vpn"]
+    )
+    response = (stdout if stdout else stderr).strip()
+    if not response:
+        response = "VPN connection restarted."
+    await asyncio.sleep(2)
+    try:
+        await msg.edit_text(f"Restart VPN Result:\n{response}")
+    except Exception as e:
+        logger.warning(f"Could not edit restart vpn message, sending new reply: {e}")
+        try:
+            await update.message.reply_text(
+                f"Restart VPN Result:\n{response}", reply_markup=MAIN_KEYBOARD
+            )
+        except Exception as e2:
+            logger.error(f"Failed to send restart vpn reply: {e2}")
 
 
 async def fix_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -798,9 +849,22 @@ async def fix_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     msg = await update.message.reply_text(
         "Running auto-fix for hotspot and VPN...", reply_markup=MAIN_KEYBOARD
     )
-    stdout, stderr, _ = run_hotspot_command(["--fix"])
-    response = stdout if stdout else stderr
-    await msg.edit_text(f"Fix Result:\n{response}")
+    loop = asyncio.get_running_loop()
+    stdout, stderr, _ = await loop.run_in_executor(None, run_hotspot_command, ["--fix"])
+    response = (stdout if stdout else stderr).strip()
+    if not response:
+        response = "Auto-fix completed."
+    await asyncio.sleep(2)
+    try:
+        await msg.edit_text(f"Fix Result:\n{response}")
+    except Exception as e:
+        logger.warning(f"Could not edit fix message, sending new reply: {e}")
+        try:
+            await update.message.reply_text(
+                f"Fix Result:\n{response}", reply_markup=MAIN_KEYBOARD
+            )
+        except Exception as e2:
+            logger.error(f"Failed to send fix reply: {e2}")
 
 
 async def clients_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -810,7 +874,10 @@ async def clients_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     if update.message is None:
         return
-    stdout, stderr, _ = run_hotspot_command(["--clients"])
+    loop = asyncio.get_running_loop()
+    stdout, stderr, _ = await loop.run_in_executor(
+        None, run_hotspot_command, ["--clients"]
+    )
     response = stdout if stdout else stderr
     await update.message.reply_text(response, reply_markup=MAIN_KEYBOARD)
 
@@ -928,9 +995,7 @@ def main():
             CallbackQueryHandler(ipv6_callback, pattern="^(ipv6_|menu_ipv6)")
         )
         app.add_handler(
-            CallbackQueryHandler(
-                adguard_callback, pattern="^(adguard_|menu_adguard)"
-            )
+            CallbackQueryHandler(adguard_callback, pattern="^(adguard_|menu_adguard)")
         )
         app.add_handler(
             CallbackQueryHandler(refresh_callback, pattern="^refresh_status$")

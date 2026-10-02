@@ -550,17 +550,33 @@ def switch_vpn(target: str) -> bool:
         return ok
     elif target == "tun0":
         run_args(
-            ["sudo", "systemctl", "disable", "awg-quick@awg0", "wg-quick@wg0"],
+            ["sudo", "systemctl", "stop", "awg-quick@awg0", "wg-quick@wg0"],
             timeout=15,
         )
-        run_args(
-            ["sudo", "systemctl", "stop", "awg-quick@awg0", "wg-quick@wg0"], timeout=15
+        ok_up, out, err = run_args(
+            ["sudo", "nmcli", "connection", "up", vpn_name], timeout=30
         )
-        run_args(["sudo", "nmcli", "connection", "up", vpn_name], timeout=70)
-        wait_for_interface("tun0", timeout=15)
-        ok = apply_vpn_policy("tun0")
-        refresh_github_routes()
-        return ok
+        if wait_for_interface("tun0", timeout=10):
+            run_args(
+                ["sudo", "systemctl", "disable", "awg-quick@awg0", "wg-quick@wg0"],
+                timeout=15,
+            )
+            ok = apply_vpn_policy("tun0")
+            refresh_github_routes()
+            return ok
+        else:
+            log(
+                "OpenVPN activation failed. Reverting to AmneziaWG (awg0)...",
+                "WARN",
+            )
+            run_args(["sudo", "nmcli", "connection", "down", vpn_name], timeout=10)
+            run_args(["sudo", "systemctl", "enable", "awg-quick@awg0"], timeout=15)
+            run_args(["sudo", "systemctl", "start", "awg-quick@awg0"], timeout=20)
+            wait_for_interface("awg0", timeout=10)
+            apply_vpn_policy("awg0")
+            refresh_github_routes()
+            update_goodwifi_conf("VPN_BACKEND", "awg0")
+            return False
     else:  # auto
         iface, _ = get_active_vpn_interface()
         ok = apply_vpn_policy(iface)
@@ -614,9 +630,9 @@ def restart_openvpn() -> bool:
     for attempt in range(1, 3):
         ok, out, err = run_args(
             ["sudo", "nmcli", "connection", "up", vpn_name],
-            timeout=70,
+            timeout=30,
         )
-        if (ok or check_vpn()) and wait_for_interface("tun0", timeout=15):
+        if (ok or check_vpn()) and wait_for_interface("tun0", timeout=10):
             log("VPN connected", "SUCCESS")
             policy_ok = apply_vpn_policy()
             refresh_github_routes()
@@ -627,11 +643,16 @@ def restart_openvpn() -> bool:
             log(f"VPN activation attempt {attempt} failed; retrying...", "WARN")
             run_args(
                 ["sudo", "nmcli", "connection", "down", vpn_name],
-                timeout=20,
+                timeout=10,
             )
-            time.sleep(2)
+            time.sleep(1)
 
-    log(f"VPN activation failed: {last_error}", "ERROR")
+    log(
+        f"OpenVPN activation failed: {last_error}. Falling back to AmneziaWG...", "WARN"
+    )
+    run_args(["sudo", "nmcli", "connection", "down", vpn_name], timeout=10)
+    if restart_amneziawg():
+        update_goodwifi_conf("VPN_BACKEND", "awg0")
     return False
 
 
