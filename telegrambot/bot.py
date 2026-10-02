@@ -52,12 +52,16 @@ EMOJI_WIREGUARD = "6165512058344318397"  # 🐉 WireGuard
 EMOJI_OPENVPN = "6165724869678866601"  # 🔐 OpenVPN
 EMOJI_AMNEZIAWG = "6165519909544534378"  # 🛡 AmneziaWG
 EMOJI_RPI = "6165792622787961093"  # 🍓 Raspberry Pi
+EMOJI_ADGUARD = "6165657271188594962"  # 🛡 AdGuard
+EMOJI_IPV6 = "6165466570345686935"  # 🔒 IPv6
 
 # HTML formatted Telegram Premium Custom Emojis (for in-text messages)
 TG_EMOJI_WIREGUARD = f'<tg-emoji emoji-id="{EMOJI_WIREGUARD}">🐉</tg-emoji>'
 TG_EMOJI_OPENVPN = f'<tg-emoji emoji-id="{EMOJI_OPENVPN}">🔐</tg-emoji>'
 TG_EMOJI_AMNEZIAWG = f'<tg-emoji emoji-id="{EMOJI_AMNEZIAWG}">🛡</tg-emoji>'
 TG_EMOJI_RPI = f'<tg-emoji emoji-id="{EMOJI_RPI}">🍓</tg-emoji>'
+TG_EMOJI_ADGUARD = f'<tg-emoji emoji-id="{EMOJI_ADGUARD}">🛡</tg-emoji>'
+TG_EMOJI_IPV6 = f'<tg-emoji emoji-id="{EMOJI_IPV6}">🔒</tg-emoji>'
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
@@ -74,8 +78,8 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
             KeyboardButton("Switch VPN", icon_custom_emoji_id=EMOJI_WIREGUARD),
         ],
         [
-            KeyboardButton("IPv6 Mode", icon_custom_emoji_id=EMOJI_TOOLS),
-            KeyboardButton("AdGuard", icon_custom_emoji_id=EMOJI_LOCK),
+            KeyboardButton("IPv6 Mode", icon_custom_emoji_id=EMOJI_IPV6),
+            KeyboardButton("AdGuard", icon_custom_emoji_id=EMOJI_ADGUARD),
         ],
         [
             KeyboardButton("Help", icon_custom_emoji_id=EMOJI_HELP),
@@ -192,7 +196,7 @@ def make_status_keyboard(status_text: str) -> InlineKeyboardMarkup:
     ipv6_btn = InlineKeyboardButton(
         "IPv6 Mode",
         callback_data="menu_ipv6",
-        icon_custom_emoji_id=EMOJI_TOOLS,
+        icon_custom_emoji_id=EMOJI_IPV6,
     )
     adguard_running = (
         "<code>adguard</code>: Running" in status_text
@@ -203,7 +207,7 @@ def make_status_keyboard(status_text: str) -> InlineKeyboardMarkup:
     adguard_btn = InlineKeyboardButton(
         f"AdGuard: {'ON' if adguard_running else 'OFF'}",
         callback_data="menu_adguard",
-        icon_custom_emoji_id=EMOJI_LOCK,
+        icon_custom_emoji_id=EMOJI_ADGUARD,
     )
     refresh_btn = InlineKeyboardButton(
         "Refresh",
@@ -219,20 +223,23 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     ):
         return
 
-    help_text = f"""<b>{TG_EMOJI_RPI} GoodWifi Hotspot Manager</b>
-
-<b>Available Commands:</b>
-• <code>status</code> - Show hotspot and VPN status
-• <code>switch_vpn &lt;awg0|tun0|wg0|auto&gt;</code> - Switch active VPN backend
-• <code>ipv6 &lt;drop|reject|off&gt;</code> - Configure IPv6 leak protection
-• <code>adguard &lt;on|off|restart&gt;</code> - Toggle AdGuard Home service
-• <code>restart</code> - Restart hotspot services
-• <code>restart_vpn</code> - Restart VPN connection
-• <code>fix</code> - Auto-fix common issues
-• <code>clients</code> - Show connected clients
-• <code>help</code> - Show this help message
-
-<b>Usage:</b> Send command as plain text (no / needed)"""
+    help_text = (
+        f"<b>{TG_EMOJI_RPI} GoodWifi Hotspot Manager</b>\n\n"
+        f"<b>Available Commands:</b>\n"
+        f"• <code>status</code> - Show hotspot and VPN status\n"
+        f"• <code>switch_vpn &lt;awg0|tun0|wg0|auto&gt;</code> - "
+        f"Switch active VPN backend\n"
+        f"• {TG_EMOJI_IPV6} <code>ipv6 &lt;drop|reject|off&gt;</code> - "
+        f"Configure IPv6 leak protection\n"
+        f"• {TG_EMOJI_ADGUARD} <code>adguard &lt;on|off|restart&gt;</code> - "
+        f"Toggle AdGuard Home service\n"
+        f"• <code>restart</code> - Restart hotspot services\n"
+        f"• <code>restart_vpn</code> - Restart VPN connection\n"
+        f"• <code>fix</code> - Auto-fix common issues\n"
+        f"• <code>clients</code> - Show connected clients\n"
+        f"• <code>help</code> - Show this help message\n\n"
+        f"<b>Usage:</b> Send command as plain text (no / needed)"
+    )
 
     if update.message is not None:
         await update.message.reply_text(
@@ -377,7 +384,7 @@ def make_adguard_keyboard(adguard_on: bool) -> InlineKeyboardMarkup:
         toggle_btn = InlineKeyboardButton(
             "Turn ON (Filter & Block Ads)",
             callback_data="adguard_on",
-            icon_custom_emoji_id=EMOJI_LOCK,
+            icon_custom_emoji_id=EMOJI_ADGUARD,
         )
     restart_btn = InlineKeyboardButton(
         "Restart AdGuard",
@@ -409,7 +416,7 @@ async def adguard_menu_command(
     reply_markup = make_adguard_keyboard(is_enabled)
 
     text = (
-        f"<b>🛡 AdGuard Home DNS Protection</b>\n\n"
+        f"<b>{TG_EMOJI_ADGUARD} AdGuard Home DNS Protection</b>\n\n"
         f"Current Status: <b>{state_str}</b>\n\n"
         f"• <b>Turn ON</b>: AdGuard Home filters DNS and blocks ads.\n"
         f"• <b>Turn OFF</b>: AdGuard Home is stopped; dnsmasq resolves "
@@ -445,7 +452,7 @@ async def adguard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         )
         reply_markup = make_adguard_keyboard(is_enabled)
         text = (
-            f"<b>🛡 AdGuard Home DNS Protection</b>\n\n"
+            f"<b>{TG_EMOJI_ADGUARD} AdGuard Home DNS Protection</b>\n\n"
             f"Current Status: <b>{state_str}</b>\n\n"
             f"• <b>Turn ON</b>: AdGuard Home filters DNS and blocks ads.\n"
             f"• <b>Turn OFF</b>: AdGuard Home is stopped; dnsmasq resolves "
@@ -560,7 +567,7 @@ async def ipv6_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     text = (
-        f"<b>🛡 IPv6 Leak Protection:</b>\n\n"
+        f"<b>{TG_EMOJI_IPV6} IPv6 Leak Protection:</b>\n\n"
         f"Current Mode: <code>{current}</code>\n\n"
         f"• <b>Drop</b>: Silently drop client IPv6 packets (Recommended)\n"
         f"• <b>Reject</b>: Reject with ICMPv6 unreachable (Fail fast)\n"
@@ -603,7 +610,7 @@ async def ipv6_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             ],
         ]
         text = (
-            f"<b>🛡 IPv6 Leak Protection:</b>\n\n"
+            f"<b>{TG_EMOJI_IPV6} IPv6 Leak Protection:</b>\n\n"
             f"Current Mode: <code>{current}</code>\n\n"
             f"• <b>Drop</b>: Silently drop client IPv6 packets (Recommended)\n"
             f"• <b>Reject</b>: Reject with ICMPv6 unreachable (Fail fast)\n"
@@ -631,8 +638,12 @@ async def ipv6_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     reply_markup = make_status_keyboard(status_text)
 
     try:
+        msg_text = (
+            f"<b>{TG_EMOJI_IPV6} IPv6 Protection updated to {mode.upper()}!</b>"
+            f"\n\n{status_text}"
+        )
         await query.edit_message_text(
-            text=f"<b>IPv6 Protection updated to {mode.upper()}!</b>\n\n{status_text}",
+            text=msg_text,
             reply_markup=reply_markup,
             parse_mode="HTML",
         )
@@ -658,8 +669,12 @@ async def ipv6_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     status_text = await get_status_text()
     reply_markup = make_status_keyboard(status_text)
     if update.message:
+        msg_text = (
+            f"<b>{TG_EMOJI_IPV6} IPv6 Protection set to {target.upper()}!</b>"
+            f"\n\n{status_text}"
+        )
         await update.message.reply_text(
-            f"<b>IPv6 Protection set to {target.upper()}!</b>\n\n{status_text}",
+            msg_text,
             reply_markup=reply_markup,
             parse_mode="HTML",
         )

@@ -94,6 +94,8 @@ CUSTOM_EMOJIS = {
     "openvpn": '<tg-emoji emoji-id="6165724869678866601">🔐</tg-emoji>',
     "amneziawg": '<tg-emoji emoji-id="6165519909544534378">🛡</tg-emoji>',
     "raspberrypi": '<tg-emoji emoji-id="6165792622787961093">🍓</tg-emoji>',
+    "adguard": '<tg-emoji emoji-id="6165657271188594962">🛡</tg-emoji>',
+    "ipv6": '<tg-emoji emoji-id="6165466570345686935">🔒</tg-emoji>',
 }
 
 EMOJI_SIGNAL = CUSTOM_EMOJIS["signal"]
@@ -108,6 +110,8 @@ EMOJI_WIREGUARD = CUSTOM_EMOJIS["wireguard"]
 EMOJI_OPENVPN = CUSTOM_EMOJIS["openvpn"]
 EMOJI_AMNEZIAWG = CUSTOM_EMOJIS["amneziawg"]
 EMOJI_RPI = CUSTOM_EMOJIS["raspberrypi"]
+EMOJI_ADGUARD = CUSTOM_EMOJIS["adguard"]
+EMOJI_IPV6 = CUSTOM_EMOJIS["ipv6"]
 GOODWIFI_CONF = "/etc/goodwifi/goodwifi.conf"
 
 
@@ -996,7 +1000,7 @@ def print_status(status: HotspotStatus, telegram_format: bool = False) -> str:
         net_icon = EMOJI_CHECK if internet_ok else EMOJI_CROSS
         lines.append(f"{net_icon} Internet: <code>{net_status}</code>")
         ipv6_mode = status.get("ipv6_protection", "drop")
-        lines.append(f"🛡 IPv6 Protection: <code>{ipv6_mode.upper()}</code>")
+        lines.append(f"{EMOJI_IPV6} IPv6 Protection: <code>{ipv6_mode.upper()}</code>")
 
         ping_target = (
             ping.get("target", CONFIG["ping_target"]) if ping else CONFIG["ping_target"]
