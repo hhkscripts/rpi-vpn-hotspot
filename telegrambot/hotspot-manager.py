@@ -390,7 +390,7 @@ def check_vpn_external_ip() -> tuple[bool, str]:
 
 
 def check_internet() -> bool:
-    targets = [CONFIG["ping_target"], "1.1.1.1", "8.8.4.4"]
+    targets = [CONFIG["ping_target"], "9.9.9.9", "8.8.4.4"]
     active_if, _ = get_active_vpn_interface()
     vpn_ok, _, _ = run_args(["ip", "-4", "addr", "show", active_if])
     for target in targets:
@@ -540,12 +540,19 @@ def switch_vpn(target: str) -> bool:
     if target in ["awg0", "wg0"]:
         run_args(["sudo", "nmcli", "connection", "down", vpn_name], timeout=15)
         svc = "awg-quick@awg0" if target == "awg0" else "wg-quick@wg0"
+        other_svc = "wg-quick@wg0" if target == "awg0" else "awg-quick@awg0"
+        run_args(["sudo", "systemctl", "disable", other_svc], timeout=15)
+        run_args(["sudo", "systemctl", "enable", svc], timeout=15)
         run_args(["sudo", "systemctl", "start", svc], timeout=30)
         wait_for_interface(target, timeout=10)
         ok = apply_vpn_policy(target)
         refresh_github_routes()
         return ok
     elif target == "tun0":
+        run_args(
+            ["sudo", "systemctl", "disable", "awg-quick@awg0", "wg-quick@wg0"],
+            timeout=15,
+        )
         run_args(
             ["sudo", "systemctl", "stop", "awg-quick@awg0", "wg-quick@wg0"], timeout=15
         )
@@ -718,26 +725,26 @@ def configure_dnsmasq_fallback(enable_fallback: bool) -> bool:
                 stripped = line.strip()
                 if stripped == "port=0":
                     new_lines.append("#port=0")
-                    new_lines.append("server=1.1.1.1")
                     new_lines.append("server=8.8.8.8")
+                    new_lines.append("server=9.9.9.9")
                     has_fallback_server = True
-                elif stripped.startswith("server=1.1.1.1") or stripped.startswith(
-                    "server=8.8.8.8"
-                ):
+                elif stripped.startswith("server=8.8.8.8") or stripped.startswith(
+                    "server=9.9.9.9"
+                ) or stripped.startswith("server=1.1.1.1"):
                     has_fallback_server = True
                     new_lines.append(line)
                 else:
                     new_lines.append(line)
             if not has_fallback_server:
-                new_lines.append("server=1.1.1.1")
                 new_lines.append("server=8.8.8.8")
+                new_lines.append("server=9.9.9.9")
         else:
             has_port_zero = False
             for line in lines:
                 stripped = line.strip()
                 if stripped.startswith("server=1.1.1.1") or stripped.startswith(
                     "server=8.8.8.8"
-                ):
+                ) or stripped.startswith("server=9.9.9.9"):
                     continue
                 if stripped == "#port=0":
                     new_lines.append("port=0")

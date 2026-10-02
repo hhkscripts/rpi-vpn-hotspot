@@ -206,7 +206,7 @@ restart_adguard_if_configured() {
   if [ "$adguard_enabled" = "false" ] || [ "$adguard_enabled" = "0" ] || [ "$adguard_enabled" = "off" ] || [ "$adguard_enabled" = "no" ]; then
     log_info "AdGuard Home is disabled via config; skipping start and enabling dnsmasq resolver fallback"
     if [ -f /etc/dnsmasq.conf ] && grep -q '^port=0' /etc/dnsmasq.conf; then
-      sudo sed -i 's/^port=0/#port=0\nserver=1.1.1.1\nserver=8.8.8.8/' /etc/dnsmasq.conf
+      sudo sed -i 's/^port=0/#port=0\nserver=8.8.8.8\nserver=9.9.9.9/' /etc/dnsmasq.conf
       sudo systemctl restart dnsmasq 2>/dev/null || true
     fi
     return
@@ -248,6 +248,14 @@ restart_adguard_if_configured() {
       log_info "Disabling Google Ads whitelist rules in AdGuard Home configuration"
       sudo sed -i "s/^[[:space:]]*-[[:space:]]*['\"][^'\"]*google[^'\"]*['\"]/# &/" "$compose_dir/conf/AdGuardHome.yaml"
       sudo sed -i 's/^user_rules:[[:space:]]*$/user_rules: []/' "$compose_dir/conf/AdGuardHome.yaml"
+    fi
+    if sudo grep -q "1\.1\.1\.1" "$compose_dir/conf/AdGuardHome.yaml" 2>/dev/null; then
+      log_info "Optimizing AdGuard Home upstream DNS servers for Myanmar ISP compatibility"
+      sudo sed -i '/1\.1\.1\.1/d' "$compose_dir/conf/AdGuardHome.yaml"
+      sudo sed -i 's#https://dns10.quad9.net/dns-query#https://dns.google/dns-query#' "$compose_dir/conf/AdGuardHome.yaml"
+      sudo sed -i 's/upstream_mode: load_balance/upstream_mode: parallel/' "$compose_dir/conf/AdGuardHome.yaml"
+      sudo sed -i 's/cache_optimistic: false/cache_optimistic: true/' "$compose_dir/conf/AdGuardHome.yaml"
+      sudo sed -i 's/ratelimit: 20/ratelimit: 0/' "$compose_dir/conf/AdGuardHome.yaml"
     fi
   fi
 

@@ -9,8 +9,20 @@ dns:
     - 0.0.0.0
   port: 53
   upstream_dns:
-    - 1.1.1.1
+    - https://dns.google/dns-query
     - 8.8.8.8
+    - 8.8.4.4
+    - 9.9.9.9
+    - 208.67.222.222
+  bootstrap_dns:
+    - 8.8.8.8
+    - 9.9.9.9
+    - 208.67.222.222
+    - 149.112.112.10
+  upstream_mode: parallel
+  cache_optimistic: true
+  ratelimit: 0
+  upstream_timeout: 3s
   ipset_file: /opt/adguardhome/conf/ipset.conf
   ipset:
     - github.com,githubusercontent.com,actions.githubusercontent.com,deb.debian.org,security.debian.org,archive.debian.org/vpn_domains
