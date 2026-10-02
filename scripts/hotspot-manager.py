@@ -728,9 +728,11 @@ def configure_dnsmasq_fallback(enable_fallback: bool) -> bool:
                     new_lines.append("server=8.8.8.8")
                     new_lines.append("server=9.9.9.9")
                     has_fallback_server = True
-                elif stripped.startswith("server=8.8.8.8") or stripped.startswith(
-                    "server=9.9.9.9"
-                ) or stripped.startswith("server=1.1.1.1"):
+                elif (
+                    stripped.startswith("server=8.8.8.8")
+                    or stripped.startswith("server=9.9.9.9")
+                    or stripped.startswith("server=1.1.1.1")
+                ):
                     has_fallback_server = True
                     new_lines.append(line)
                 else:
@@ -742,9 +744,11 @@ def configure_dnsmasq_fallback(enable_fallback: bool) -> bool:
             has_port_zero = False
             for line in lines:
                 stripped = line.strip()
-                if stripped.startswith("server=1.1.1.1") or stripped.startswith(
-                    "server=8.8.8.8"
-                ) or stripped.startswith("server=9.9.9.9"):
+                if (
+                    stripped.startswith("server=1.1.1.1")
+                    or stripped.startswith("server=8.8.8.8")
+                    or stripped.startswith("server=9.9.9.9")
+                ):
                     continue
                 if stripped == "#port=0":
                     new_lines.append("port=0")
