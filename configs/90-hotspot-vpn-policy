@@ -39,7 +39,7 @@ is_vpn_action() {
 
 is_vpn_iface() {
     case "$1" in
-        awg*|wg*|tun*|tap*) return 0 ;;
+        awg*|wg*|tun*|tap*|sing*) return 0 ;;
         *)
             if [ -n "${VPN_BACKEND:-}" ] && [ "$VPN_BACKEND" != "auto" ] && [ "$1" = "$VPN_BACKEND" ]; then
                 return 0
@@ -66,7 +66,9 @@ else
 fi
 
 if [ -z "${VPN_IF:-}" ]; then
-    if [ "$VPN_BACKEND" = "awg0" ]; then
+    if [ "$VPN_BACKEND" = "sing0" ]; then
+        VPN_IF="sing0"
+    elif [ "$VPN_BACKEND" = "awg0" ]; then
         VPN_IF="awg0"
     elif [ "$VPN_BACKEND" = "wg0" ]; then
         VPN_IF="wg0"
@@ -74,12 +76,16 @@ if [ -z "${VPN_IF:-}" ]; then
         VPN_IF="tun0"
     else
         # auto mode: prioritize active interfaces with an IPv4 address
-        if ip -4 addr show awg0 2>/dev/null | grep -q "inet "; then
+        if ip -4 addr show sing0 2>/dev/null | grep -q "inet "; then
+            VPN_IF="sing0"
+        elif ip -4 addr show awg0 2>/dev/null | grep -q "inet "; then
             VPN_IF="awg0"
         elif ip -4 addr show wg0 2>/dev/null | grep -q "inet "; then
             VPN_IF="wg0"
         elif ip -4 addr show tun0 2>/dev/null | grep -q "inet "; then
             VPN_IF="tun0"
+        elif ip link show sing0 >/dev/null 2>&1; then
+            VPN_IF="sing0"
         elif ip link show awg0 >/dev/null 2>&1; then
             VPN_IF="awg0"
         elif ip link show wg0 >/dev/null 2>&1; then
@@ -93,6 +99,8 @@ fi
 if [ -z "${VPN_MTU:-}" ]; then
     if [ "$VPN_IF" = "awg0" ] || [ "$VPN_IF" = "wg0" ]; then
         VPN_MTU="1280"
+    elif [ "$VPN_IF" = "sing0" ]; then
+        VPN_MTU="1500"
     else
         VPN_MTU="${VPN_MTU:-1400}"
     fi

@@ -179,5 +179,34 @@ class AdGuardStateTests(unittest.TestCase):
             dnsm.assert_called_once_with(enable_fallback=False)
 
 
+class SingboxBackendTests(unittest.TestCase):
+    def test_get_active_vpn_interface_sing0(self):
+        with patch.object(
+            hotspot_manager,
+            "run_args",
+            return_value=(True, "default dev sing0 proto static scope link\n", ""),
+        ):
+            iface, name = hotspot_manager.get_active_vpn_interface()
+            self.assertEqual(iface, "sing0")
+            self.assertEqual(name, "VLESS")
+
+    def test_switch_vpn_sing0(self):
+        with (
+            patch.object(hotspot_manager, "update_goodwifi_conf", return_value=True),
+            patch.object(
+                hotspot_manager, "get_vpn_connection_name", return_value="goodwifi-vpn"
+            ),
+            patch.object(hotspot_manager, "run_args", return_value=(True, "", "")),
+            patch.object(hotspot_manager, "wait_for_interface", return_value=True),
+            patch.object(
+                hotspot_manager, "apply_vpn_policy", return_value=True
+            ) as apply_pol,
+            patch.object(hotspot_manager, "refresh_github_routes"),
+            patch.object(hotspot_manager, "log"),
+        ):
+            self.assertTrue(hotspot_manager.switch_vpn("sing0"))
+            apply_pol.assert_called_once_with("sing0")
+
+
 if __name__ == "__main__":
     unittest.main()

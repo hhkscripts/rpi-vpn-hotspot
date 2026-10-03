@@ -51,6 +51,7 @@ EMOJI_HELP = "6307322000033458270"  # 📔 Book / Help
 EMOJI_WIREGUARD = "6165512058344318397"  # 🐉 WireGuard
 EMOJI_OPENVPN = "6165724869678866601"  # 🔐 OpenVPN
 EMOJI_AMNEZIAWG = "6165519909544534378"  # 🛡 AmneziaWG
+EMOJI_SINGBOX = "6165519909544534378"  # ⚡ Sing-box
 EMOJI_RPI = "6165792622787961093"  # 🍓 Raspberry Pi
 EMOJI_ADGUARD = "6165657271188594962"  # 🛡 AdGuard
 EMOJI_IPV6 = "6165466570345686935"  # 🔒 IPv6
@@ -59,6 +60,7 @@ EMOJI_IPV6 = "6165466570345686935"  # 🔒 IPv6
 TG_EMOJI_WIREGUARD = f'<tg-emoji emoji-id="{EMOJI_WIREGUARD}">🐉</tg-emoji>'
 TG_EMOJI_OPENVPN = f'<tg-emoji emoji-id="{EMOJI_OPENVPN}">🔐</tg-emoji>'
 TG_EMOJI_AMNEZIAWG = f'<tg-emoji emoji-id="{EMOJI_AMNEZIAWG}">🛡</tg-emoji>'
+TG_EMOJI_SINGBOX = f'<tg-emoji emoji-id="{EMOJI_SINGBOX}">⚡</tg-emoji>'
 TG_EMOJI_RPI = f'<tg-emoji emoji-id="{EMOJI_RPI}">🍓</tg-emoji>'
 TG_EMOJI_ADGUARD = f'<tg-emoji emoji-id="{EMOJI_ADGUARD}">🛡</tg-emoji>'
 TG_EMOJI_IPV6 = f'<tg-emoji emoji-id="{EMOJI_IPV6}">🔒</tg-emoji>'
@@ -180,17 +182,23 @@ async def get_status_text() -> str:
 
 
 def make_status_keyboard(status_text: str) -> InlineKeyboardMarkup:
-    if "awg0" in status_text or "AmneziaWG" in status_text:
-        switch_btn = InlineKeyboardButton(
-            "Switch to OpenVPN (tun0)",
-            callback_data="switch_tun0",
-            icon_custom_emoji_id=EMOJI_OPENVPN,
-        )
-    else:
+    if "sing0" in status_text or "VLESS" in status_text:
         switch_btn = InlineKeyboardButton(
             "Switch to AmneziaWG (awg0)",
             callback_data="switch_awg0",
             icon_custom_emoji_id=EMOJI_AMNEZIAWG,
+        )
+    elif "awg0" in status_text or "AmneziaWG" in status_text:
+        switch_btn = InlineKeyboardButton(
+            "Switch to VLESS (sing0)",
+            callback_data="switch_sing0",
+            icon_custom_emoji_id=EMOJI_SINGBOX,
+        )
+    else:
+        switch_btn = InlineKeyboardButton(
+            "Switch to VLESS (sing0)",
+            callback_data="switch_sing0",
+            icon_custom_emoji_id=EMOJI_SINGBOX,
         )
 
     ipv6_btn = InlineKeyboardButton(
@@ -227,7 +235,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"<b>{TG_EMOJI_RPI} GoodWifi Hotspot Manager</b>\n\n"
         f"<b>Available Commands:</b>\n"
         f"• <code>status</code> - Show hotspot and VPN status\n"
-        f"• <code>switch_vpn &lt;awg0|tun0|wg0|auto&gt;</code> - "
+        f"• <code>switch_vpn &lt;sing0|awg0|tun0|wg0|auto&gt;</code> - "
         f"Switch active VPN backend\n"
         f"• {TG_EMOJI_IPV6} <code>ipv6 &lt;drop|reject|off&gt;</code> - "
         f"Configure IPv6 leak protection\n"
@@ -692,6 +700,18 @@ async def switch_menu_command(
     keyboard = [
         [
             InlineKeyboardButton(
+                "⚡ VLESS S1 (198.71)",
+                callback_data="switch_reality_1",
+                icon_custom_emoji_id=EMOJI_SINGBOX,
+            ),
+            InlineKeyboardButton(
+                "⚡ VLESS S2 (5.183)",
+                callback_data="switch_reality_2",
+                icon_custom_emoji_id=EMOJI_SINGBOX,
+            ),
+        ],
+        [
+            InlineKeyboardButton(
                 "AmneziaWG (awg0)",
                 callback_data="switch_awg0",
                 icon_custom_emoji_id=EMOJI_AMNEZIAWG,
@@ -703,11 +723,6 @@ async def switch_menu_command(
             ),
         ],
         [
-            InlineKeyboardButton(
-                "WireGuard (wg0)",
-                callback_data="switch_wg0",
-                icon_custom_emoji_id=EMOJI_WIREGUARD,
-            ),
             InlineKeyboardButton(
                 "Auto (Auto Select)",
                 callback_data="switch_auto",
@@ -743,23 +758,40 @@ async def switch_vpn_callback(
             pass
         return
 
-    target = query.data.replace("switch_", "")
-    names = {
-        "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
-        "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
-        "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
-        "auto": "Auto",
-    }
-    target_name = names.get(target, target)
-    try:
-        await query.answer(f"Switching to {target}...")
-    except Exception:
-        pass
-
+    data = query.data
     loop = asyncio.get_running_loop()
-    _, _, code = await loop.run_in_executor(
-        None, run_hotspot_command, ["--switch-vpn", target]
-    )
+
+    if data.startswith("switch_reality_"):
+        server_num = data.replace("switch_reality_", "")
+        server_ip = "198.71.50.129" if server_num == "1" else "5.183.9.86"
+        target_name = f"{TG_EMOJI_SINGBOX} VLESS Server {server_num} ({server_ip})"
+        try:
+            await query.answer(f"Switching to VLESS Server {server_num}...")
+        except Exception:
+            pass
+
+        await loop.run_in_executor(None, run_hotspot_command, ["--switch-vpn", "sing0"])
+        _, _, code = await loop.run_in_executor(
+            None, run_hotspot_command, ["--reality-server", server_num]
+        )
+    else:
+        target = data.replace("switch_", "")
+        names = {
+            "sing0": f"{TG_EMOJI_SINGBOX} VLESS (sing0)",
+            "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
+            "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
+            "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
+            "auto": "Auto",
+        }
+        target_name = names.get(target, target)
+        try:
+            await query.answer(f"Switching to {target}...")
+        except Exception:
+            pass
+
+        _, _, code = await loop.run_in_executor(
+            None, run_hotspot_command, ["--switch-vpn", target]
+        )
     await asyncio.sleep(2)
     status_text = await get_status_text()
     reply_markup = make_status_keyboard(status_text)
@@ -795,15 +827,16 @@ async def switch_vpn_command(
         return
 
     target = context.args[0].lower() if context.args else "auto"
-    if target not in ["awg0", "tun0", "auto", "wg0"]:
+    if target not in ["sing0", "awg0", "tun0", "auto", "wg0"]:
         if update.message:
             await update.message.reply_text(
-                "Usage: <code>/switch_vpn &lt;awg0|tun0|wg0|auto&gt;</code>",
+                "Usage: <code>/switch_vpn &lt;sing0|awg0|tun0|wg0|auto&gt;</code>",
                 parse_mode="HTML",
             )
         return
 
     target_names = {
+        "sing0": f"{TG_EMOJI_SINGBOX} Sing-box Reality (sing0)",
         "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
         "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
         "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
@@ -1063,7 +1096,8 @@ def main():
 
         app.add_handler(
             CallbackQueryHandler(
-                switch_vpn_callback, pattern="^switch_(awg0|tun0|wg0|auto)$"
+                switch_vpn_callback,
+                pattern="^switch_(sing0|reality_1|reality_2|awg0|tun0|wg0|auto)$",
             )
         )
         app.add_handler(

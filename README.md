@@ -99,6 +99,7 @@ IPV6_LEAK_PROTECTION="drop"
 
 GoodWifi dynamically adapts to whichever VPN backend is running:
 
+- **Sing-box Reality (`sing0`)**: Highest-tier DPI circumvention using VLESS-Reality protocol with fake TLS handshakes (masquerading as legitimate major cloud/CDN destinations). Immune to protocol-level UDP filtering and deep packet inspection.
 - **AmneziaWG (`awg0`)**: Recommended for heavily censored environments. Obfuscates WireGuard packet headers (`Jc`, `Jmin`, `Jmax`, `S1`, `S2`, `H1`-`H4`) to bypass DPI blocks.
 - **WireGuard (`wg0`)**: Standard WireGuard protocol for high-speed, low-latency tunneling.
 - **OpenVPN (`tun0`)**: Traditional OpenVPN protocol managed by NetworkManager. Includes automatic `--replay-window 8192 60` diversion wrapper for unstable mobile UDP paths.

@@ -93,6 +93,7 @@ CUSTOM_EMOJIS = {
     "wireguard": '<tg-emoji emoji-id="6165512058344318397">🐉</tg-emoji>',
     "openvpn": '<tg-emoji emoji-id="6165724869678866601">🔐</tg-emoji>',
     "amneziawg": '<tg-emoji emoji-id="6165519909544534378">🛡</tg-emoji>',
+    "singbox": '<tg-emoji emoji-id="6165519909544534378">⚡</tg-emoji>',
     "raspberrypi": '<tg-emoji emoji-id="6165792622787961093">🍓</tg-emoji>',
     "adguard": '<tg-emoji emoji-id="6165657271188594962">🛡</tg-emoji>',
     "ipv6": '<tg-emoji emoji-id="6165466570345686935">🔒</tg-emoji>',
@@ -109,6 +110,7 @@ EMOJI_PING = CUSTOM_EMOJIS["ping"]
 EMOJI_WIREGUARD = CUSTOM_EMOJIS["wireguard"]
 EMOJI_OPENVPN = CUSTOM_EMOJIS["openvpn"]
 EMOJI_AMNEZIAWG = CUSTOM_EMOJIS["amneziawg"]
+EMOJI_SINGBOX = CUSTOM_EMOJIS["singbox"]
 EMOJI_RPI = CUSTOM_EMOJIS["raspberrypi"]
 EMOJI_ADGUARD = CUSTOM_EMOJIS["adguard"]
 EMOJI_IPV6 = CUSTOM_EMOJIS["ipv6"]
@@ -209,7 +211,7 @@ def get_configured_backend() -> str:
                     line = line.strip()
                     if line.startswith("VPN_BACKEND="):
                         val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                        if val in ["awg0", "tun0", "wg0", "auto"]:
+                        if val in ["sing0", "awg0", "tun0", "wg0", "auto"]:
                             return val
         except Exception:
             pass
@@ -242,7 +244,9 @@ def get_active_vpn_interface() -> tuple[str, str]:
                 parts = line.split()
                 if len(parts) >= 3:
                     dev = parts[2]
-                    if dev == "awg0":
+                    if dev == "sing0":
+                        return "sing0", "VLESS"
+                    elif dev == "awg0":
                         return "awg0", "AmneziaWG"
                     elif dev == "wg0":
                         return "wg0", "WireGuard"
@@ -250,15 +254,19 @@ def get_active_vpn_interface() -> tuple[str, str]:
                         return "tun0", "OpenVPN"
 
     configured = get_configured_backend()
-    if configured in ["awg0", "wg0", "tun0"]:
-        name = (
-            "AmneziaWG"
-            if configured == "awg0"
-            else ("WireGuard" if configured == "wg0" else "OpenVPN")
-        )
+    if configured in ["sing0", "awg0", "wg0", "tun0"]:
+        if configured == "sing0":
+            name = "VLESS"
+        elif configured == "awg0":
+            name = "AmneziaWG"
+        elif configured == "wg0":
+            name = "WireGuard"
+        else:
+            name = "OpenVPN"
         return configured, name
 
     for iface, name in [
+        ("sing0", "VLESS"),
         ("awg0", "AmneziaWG"),
         ("wg0", "WireGuard"),
         ("tun0", "OpenVPN"),
@@ -267,6 +275,9 @@ def get_active_vpn_interface() -> tuple[str, str]:
         if ok and "inet " in out:
             return iface, name
 
+    ok, _, _ = run_args(["ip", "link", "show", "sing0"])
+    if ok:
+        return "sing0", "VLESS"
     ok, _, _ = run_args(["ip", "link", "show", "awg0"])
     if ok:
         return "awg0", "AmneziaWG"
@@ -346,7 +357,7 @@ def check_vpn() -> bool:
     if ok and "inet " in out:
         return True
 
-    for fallback in ["awg0", "wg0", "tun0"]:
+    for fallback in ["sing0", "awg0", "wg0", "tun0"]:
         ok, out, _ = run_args(["ip", "-4", "addr", "show", fallback])
         if ok and "inet " in out:
             return True
@@ -370,7 +381,7 @@ def check_vpn() -> bool:
 
 def check_vpn_ip() -> tuple[bool, str]:
     iface, _ = get_active_vpn_interface()
-    for candidate in [iface, "awg0", "wg0", "tun0"]:
+    for candidate in [iface, "sing0", "awg0", "wg0", "tun0"]:
         ok, out, _ = run_args(["ip", "-4", "-o", "addr", "show", candidate])
         if ok:
             for line in out.splitlines():
@@ -383,7 +394,7 @@ def check_vpn_ip() -> tuple[bool, str]:
 
 def check_vpn_external_ip() -> tuple[bool, str]:
     iface, _ = get_active_vpn_interface()
-    for candidate in [iface, "awg0", "wg0", "tun0"]:
+    for candidate in [iface, "sing0", "awg0", "wg0", "tun0"]:
         ok, out, _ = run_args(
             [
                 "curl",
@@ -541,15 +552,36 @@ def get_vpn_connection_name() -> str:
 
 def switch_vpn(target: str) -> bool:
     target = target.lower()
-    if target not in ["awg0", "tun0", "wg0", "auto"]:
-        log(f"Invalid target: {target}. Choose from: awg0, tun0, wg0, auto", "ERROR")
+    if target not in ["sing0", "awg0", "tun0", "wg0", "auto"]:
+        log(
+            f"Invalid target: {target}. Choose from: sing0, awg0, tun0, wg0, auto",
+            "ERROR",
+        )
         return False
 
     update_goodwifi_conf("VPN_BACKEND", target)
 
     log(f"Switching VPN backend to {target}...")
     vpn_name = get_vpn_connection_name()
-    if target in ["awg0", "wg0"]:
+    if target == "sing0":
+        run_args(["sudo", "nmcli", "connection", "down", vpn_name], timeout=15)
+        run_args(
+            ["sudo", "systemctl", "stop", "awg-quick@awg0", "wg-quick@wg0"],
+            timeout=15,
+        )
+        run_args(
+            ["sudo", "systemctl", "disable", "awg-quick@awg0", "wg-quick@wg0"],
+            timeout=15,
+        )
+        run_args(["sudo", "systemctl", "enable", "xray", "sing-box"], timeout=15)
+        run_args(["sudo", "systemctl", "restart", "xray", "sing-box"], timeout=30)
+        wait_for_interface("sing0", timeout=10)
+        ok = apply_vpn_policy("sing0")
+        refresh_github_routes()
+        return ok
+    elif target in ["awg0", "wg0"]:
+        run_args(["sudo", "systemctl", "stop", "sing-box"], timeout=15)
+        run_args(["sudo", "systemctl", "disable", "sing-box"], timeout=15)
         run_args(["sudo", "nmcli", "connection", "down", vpn_name], timeout=15)
         svc = "awg-quick@awg0" if target == "awg0" else "wg-quick@wg0"
         other_svc = "wg-quick@wg0" if target == "awg0" else "awg-quick@awg0"
@@ -561,6 +593,8 @@ def switch_vpn(target: str) -> bool:
         refresh_github_routes()
         return ok
     elif target == "tun0":
+        run_args(["sudo", "systemctl", "stop", "sing-box"], timeout=15)
+        run_args(["sudo", "systemctl", "disable", "sing-box"], timeout=15)
         run_args(
             ["sudo", "systemctl", "stop", "awg-quick@awg0", "wg-quick@wg0"],
             timeout=15,
@@ -596,6 +630,52 @@ def switch_vpn(target: str) -> bool:
         return ok
 
 
+def switch_reality_server(server_num: str) -> bool:
+    """Switch primary Xray Reality outbound between server-1 and server-2."""
+    config_path = get_host_path("/etc/xray/config.json")
+    if not os.path.exists(config_path):
+        log(f"Xray config not found at {config_path}", "ERROR")
+        return False
+
+    target_tag = (
+        f"server-{server_num}" if not server_num.startswith("server-") else server_num
+    )
+    try:
+        import json
+
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+
+        target = next(
+            (o for o in cfg.get("outbounds", []) if o.get("tag") == target_tag), None
+        )
+        if not target:
+            log(f"Reality server '{target_tag}' not found in config", "ERROR")
+            return False
+
+        other_outbounds = [
+            o for o in cfg.get("outbounds", []) if o.get("tag") != target_tag
+        ]
+        cfg["outbounds"] = [target] + other_outbounds
+
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+            json.dump(cfg, tf, indent=2)
+            tmp_name = tf.name
+
+        run_args(["sudo", "cp", tmp_name, config_path])
+        run_args(["sudo", "chmod", "0644", config_path])
+        os.unlink(tmp_name)
+
+        run_args(["sudo", "systemctl", "restart", "xray"], timeout=15)
+        log(f"Switched Reality primary to {target_tag}", "SUCCESS")
+        return True
+    except Exception as e:
+        log(f"Failed to switch Reality server: {e}", "ERROR")
+        return False
+
+
 def wait_for_interface(interface: str, timeout: int = 60) -> bool:
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -603,6 +683,18 @@ def wait_for_interface(interface: str, timeout: int = 60) -> bool:
         if ok:
             return True
         time.sleep(1)
+    return False
+
+
+def restart_singbox() -> bool:
+    log("Restarting Sing-box Reality (sing0)...")
+    run_args(["sudo", "systemctl", "restart", "xray", "sing-box"], timeout=30)
+    if wait_for_interface("sing0", timeout=10):
+        log("Sing-box Reality connected", "SUCCESS")
+        policy_ok = apply_vpn_policy("sing0")
+        refresh_github_routes()
+        return policy_ok
+    log("Sing-box Reality restart failed", "ERROR")
     return False
 
 
@@ -670,7 +762,9 @@ def restart_openvpn() -> bool:
 
 def restart_vpn() -> bool:
     target = get_configured_backend()
-    if target == "awg0":
+    if target == "sing0":
+        return restart_singbox()
+    elif target == "awg0":
         return restart_amneziawg()
     elif target == "wg0":
         return restart_wireguard()
@@ -679,7 +773,9 @@ def restart_vpn() -> bool:
 
     # In "auto" mode: preserve and restart the currently active backend
     active_if, _ = get_active_vpn_interface()
-    if active_if == "awg0":
+    if active_if == "sing0":
+        return restart_singbox()
+    elif active_if == "awg0":
         return restart_amneziawg()
     elif active_if == "wg0":
         return restart_wireguard()
@@ -687,6 +783,12 @@ def restart_vpn() -> bool:
         return restart_openvpn()
 
     # If no VPN interface is currently up, activate in auto-priority order:
+    sing_conf = get_host_path("/etc/sing-box/config.json")
+    if os.path.exists(sing_conf):
+        log("Auto mode: detecting configured Sing-box backend (sing0)...")
+        if restart_singbox():
+            return True
+
     awg_conf = get_host_path("/etc/amnezia/amneziawg/awg0.conf")
     if os.path.exists(awg_conf):
         log("Auto mode: detecting configured AmneziaWG backend (awg0)...")
@@ -953,7 +1055,15 @@ def print_status(status: HotspotStatus, telegram_format: bool = False) -> str:
 
         vpn_header_emoji = EMOJI_LOCK
         conn_badge = backend
-        if "amnezia" in backend.lower() or iface == "awg0":
+        if (
+            "sing" in backend.lower()
+            or "reality" in backend.lower()
+            or "vless" in backend.lower()
+            or iface == "sing0"
+        ):
+            vpn_header_emoji = EMOJI_SINGBOX
+            conn_badge = f"{EMOJI_SINGBOX} VLESS"
+        elif "amnezia" in backend.lower() or iface == "awg0":
             vpn_header_emoji = EMOJI_AMNEZIAWG
             conn_badge = f"{EMOJI_AMNEZIAWG} AmneziaWG"
         elif "wireguard" in backend.lower() or iface == "wg0":
@@ -1097,8 +1207,17 @@ def main() -> None:
     parser.add_argument(
         "--switch-vpn",
         dest="switch_vpn",
-        choices=["awg0", "tun0", "wg0", "auto"],
+        choices=["sing0", "awg0", "tun0", "wg0", "auto"],
         help="Switch active VPN backend",
+    )
+    parser.add_argument(
+        "--reality-server",
+        dest="reality_server",
+        choices=["1", "2", "server-1", "server-2"],
+        help=(
+            "Switch primary Reality server "
+            "(1: IONOS 198.71.50.129, 2: Hostinger 5.183.9.86)"
+        ),
     )
     parser.add_argument(
         "--set-ipv6",
@@ -1136,6 +1255,13 @@ def main() -> None:
         refresh_github_routes()
         print("Routes refreshed successfully.")
         sys.exit(0)
+
+    if args.reality_server:
+        num = "1" if args.reality_server in ["1", "server-1"] else "2"
+        success = switch_reality_server(num)
+        output = print_status(get_status(), telegram_format=telegram_format)
+        print(output)
+        sys.exit(0 if success else 1)
 
     if args.switch_vpn:
         success = switch_vpn(args.switch_vpn)
