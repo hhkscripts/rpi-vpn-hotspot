@@ -745,7 +745,6 @@ def generate_singbox_config(profile_path: Optional[str] = None) -> dict:
                 "auto_route": False,
                 "strict_route": False,
                 "stack": "system",
-                "sniff": True,
             }
         ],
         "outbounds": [
@@ -756,38 +755,44 @@ def generate_singbox_config(profile_path: Optional[str] = None) -> dict:
                 "server_port": 10808,
             }
         ],
-        "route": {"rules": []},
+        "route": {"rules": [{"action": "sniff"}]},
     }
 
     if profile_path and os.path.exists(profile_path):
-        cp = configparser.ConfigParser()
-        cp.read(profile_path)
-        iface = cp["Interface"]
-        peer = cp["Peer"]
-        endpoint = peer.get("endpoint", "")
-        server_ip, server_port = endpoint.split(":")
+        try:
+            cp = configparser.ConfigParser()
+            cp.read(profile_path)
+            iface = cp["Interface"]
+            peer = cp["Peer"]
+            endpoint = peer.get("endpoint", "")
+            server_ip, server_port = endpoint.split(":")
 
-        ep = {
-            "type": "wireguard",
-            "tag": "wg-out",
-            "system": False,
-            "address": [a.strip() for a in iface.get("address", "").split(",")],
-            "private_key": iface.get("privatekey", ""),
-            "peers": [
-                {
-                    "address": server_ip.strip(),
-                    "port": int(server_port.strip()),
-                    "public_key": peer.get("publickey", ""),
-                    "allowed_ips": ["0.0.0.0/0"],
-                }
-            ],
-            "detour": "xray-socks",
-        }
-        if peer.get("presharedkey"):
-            ep["peers"][0]["pre_shared_key"] = peer.get("presharedkey").strip()
+            ep = {
+                "type": "wireguard",
+                "tag": "wg-out",
+                "system": False,
+                "address": [a.strip() for a in iface.get("address", "").split(",")],
+                "private_key": iface.get("privatekey", ""),
+                "peers": [
+                    {
+                        "address": server_ip.strip(),
+                        "port": int(server_port.strip()),
+                        "public_key": peer.get("publickey", ""),
+                        "allowed_ips": ["0.0.0.0/0"],
+                    }
+                ],
+                "detour": "xray-socks",
+            }
+            if peer.get("presharedkey"):
+                ep["peers"][0]["pre_shared_key"] = peer.get("presharedkey").strip()
 
-        cfg["endpoints"] = [ep]
-        cfg["route"]["rules"].append({"inbound": ["tun-in"], "outbound": "wg-out"})
+            cfg["endpoints"] = [ep]
+            cfg["route"]["rules"].append({"inbound": ["tun-in"], "outbound": "wg-out"})
+        except Exception as e:
+            log(f"Error parsing profile {profile_path}: {e}", "ERROR")
+            cfg["route"]["rules"].append(
+                {"inbound": ["tun-in"], "outbound": "xray-socks"}
+            )
     else:
         cfg["route"]["rules"].append({"inbound": ["tun-in"], "outbound": "xray-socks"})
 
@@ -830,6 +835,21 @@ def switch_unlimited_country(country: str) -> bool:
         wait_for_interface("sing0", timeout=10)
         apply_vpn_policy("sing0")
         refresh_github_routes()
+
+    if country not in ["direct", "off", "none"]:
+        time.sleep(2)
+        ok_ext, _ = check_vpn_external_ip()
+        if not ok_ext:
+            time.sleep(2)
+            ok_ext, _ = check_vpn_external_ip()
+        if not ok_ext:
+            log(
+                f"Country profile '{country.upper()}' did not handshake. "
+                "Reverting to Direct VLESS...",
+                "WARN",
+            )
+            switch_unlimited_country("direct")
+            return False
 
     log(f"Switched Multi-Country exit to {country.upper()}", "SUCCESS")
     return True

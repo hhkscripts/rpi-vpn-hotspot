@@ -240,7 +240,8 @@ class CountryProfileTests(unittest.TestCase):
         self.assertNotIn("endpoints", cfg)
         self.assertEqual(cfg["inbounds"][0]["type"], "tun")
         self.assertEqual(cfg["outbounds"][0]["type"], "socks")
-        self.assertEqual(cfg["route"]["rules"][0]["outbound"], "xray-socks")
+        self.assertEqual(cfg["route"]["rules"][0]["action"], "sniff")
+        self.assertEqual(cfg["route"]["rules"][1]["outbound"], "xray-socks")
 
     def test_generate_singbox_config_detour(self):
         import tempfile
@@ -266,7 +267,8 @@ class CountryProfileTests(unittest.TestCase):
             self.assertEqual(ep["detour"], "xray-socks")
             self.assertEqual(ep["peers"][0]["address"], "143.198.208.211")
             self.assertEqual(ep["peers"][0]["port"], 255)
-            self.assertEqual(cfg["route"]["rules"][0]["outbound"], "wg-out")
+            self.assertEqual(cfg["route"]["rules"][0]["action"], "sniff")
+            self.assertEqual(cfg["route"]["rules"][1]["outbound"], "wg-out")
         finally:
             if os.path.exists(tf_path):
                 os.unlink(tf_path)

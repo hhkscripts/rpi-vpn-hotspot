@@ -1195,7 +1195,9 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             )
         else:
             fail_text = (
-                f"⚠️ <b>Failed to switch Exit Country to {target_name}</b>\n\n"
+                f"⚠️ <b>Failed to switch to {target_name}</b>\n"
+                f"<i>Server did not respond to handshake "
+                f"(auto-reverted to Direct VLESS).</i>\n\n"
                 f"{status_text}"
             )
             await query.edit_message_text(
