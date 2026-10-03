@@ -51,7 +51,8 @@ EMOJI_HELP = "6307322000033458270"  # 📔 Book / Help
 EMOJI_WIREGUARD = "6165512058344318397"  # 🐉 WireGuard
 EMOJI_OPENVPN = "6165724869678866601"  # 🔐 OpenVPN
 EMOJI_AMNEZIAWG = "6165519909544534378"  # 🛡 AmneziaWG
-EMOJI_SINGBOX = "6165519909544534378"  # ⚡ Sing-box
+EMOJI_VLESS = "6197318808022032017"  # 🛡 VLESS
+EMOJI_SINGBOX = EMOJI_VLESS  # 🛡 Sing-box Reality (VLESS)
 EMOJI_RPI = "6165792622787961093"  # 🍓 Raspberry Pi
 EMOJI_ADGUARD = "6165657271188594962"  # 🛡 AdGuard
 EMOJI_IPV6 = "6165466570345686935"  # 🔒 IPv6
@@ -60,7 +61,8 @@ EMOJI_IPV6 = "6165466570345686935"  # 🔒 IPv6
 TG_EMOJI_WIREGUARD = f'<tg-emoji emoji-id="{EMOJI_WIREGUARD}">🐉</tg-emoji>'
 TG_EMOJI_OPENVPN = f'<tg-emoji emoji-id="{EMOJI_OPENVPN}">🔐</tg-emoji>'
 TG_EMOJI_AMNEZIAWG = f'<tg-emoji emoji-id="{EMOJI_AMNEZIAWG}">🛡</tg-emoji>'
-TG_EMOJI_SINGBOX = f'<tg-emoji emoji-id="{EMOJI_SINGBOX}">⚡</tg-emoji>'
+TG_EMOJI_VLESS = f'<tg-emoji emoji-id="{EMOJI_VLESS}">🛡</tg-emoji>'
+TG_EMOJI_SINGBOX = TG_EMOJI_VLESS
 TG_EMOJI_RPI = f'<tg-emoji emoji-id="{EMOJI_RPI}">🍓</tg-emoji>'
 TG_EMOJI_ADGUARD = f'<tg-emoji emoji-id="{EMOJI_ADGUARD}">🛡</tg-emoji>'
 TG_EMOJI_IPV6 = f'<tg-emoji emoji-id="{EMOJI_IPV6}">🔒</tg-emoji>'
@@ -192,13 +194,13 @@ def make_status_keyboard(status_text: str) -> InlineKeyboardMarkup:
         switch_btn = InlineKeyboardButton(
             "Switch to VLESS (sing0)",
             callback_data="switch_sing0",
-            icon_custom_emoji_id=EMOJI_SINGBOX,
+            icon_custom_emoji_id=EMOJI_VLESS,
         )
     else:
         switch_btn = InlineKeyboardButton(
             "Switch to VLESS (sing0)",
             callback_data="switch_sing0",
-            icon_custom_emoji_id=EMOJI_SINGBOX,
+            icon_custom_emoji_id=EMOJI_VLESS,
         )
 
     ipv6_btn = InlineKeyboardButton(
@@ -329,6 +331,7 @@ def get_current_backend_name() -> str:
         except Exception:
             pass
     names = {
+        "sing0": f"{TG_EMOJI_VLESS} VLESS Reality (sing0)",
         "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
         "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
         "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
@@ -700,14 +703,14 @@ async def switch_menu_command(
     keyboard = [
         [
             InlineKeyboardButton(
-                "⚡ VLESS S1 (198.71)",
+                "VLESS S1 (198.71)",
                 callback_data="switch_reality_1",
-                icon_custom_emoji_id=EMOJI_SINGBOX,
+                icon_custom_emoji_id=EMOJI_VLESS,
             ),
             InlineKeyboardButton(
-                "⚡ VLESS S2 (5.183)",
+                "VLESS S2 (5.183)",
                 callback_data="switch_reality_2",
-                icon_custom_emoji_id=EMOJI_SINGBOX,
+                icon_custom_emoji_id=EMOJI_VLESS,
             ),
         ],
         [
@@ -764,7 +767,7 @@ async def switch_vpn_callback(
     if data.startswith("switch_reality_"):
         server_num = data.replace("switch_reality_", "")
         server_ip = "198.71.50.129" if server_num == "1" else "5.183.9.86"
-        target_name = f"{TG_EMOJI_SINGBOX} VLESS Server {server_num} ({server_ip})"
+        target_name = f"{TG_EMOJI_VLESS} VLESS Server {server_num} ({server_ip})"
         try:
             await query.answer(f"Switching to VLESS Server {server_num}...")
         except Exception:
@@ -777,7 +780,7 @@ async def switch_vpn_callback(
     else:
         target = data.replace("switch_", "")
         names = {
-            "sing0": f"{TG_EMOJI_SINGBOX} VLESS (sing0)",
+            "sing0": f"{TG_EMOJI_VLESS} VLESS (sing0)",
             "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
             "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
             "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
@@ -836,7 +839,7 @@ async def switch_vpn_command(
         return
 
     target_names = {
-        "sing0": f"{TG_EMOJI_SINGBOX} Sing-box Reality (sing0)",
+        "sing0": f"{TG_EMOJI_VLESS} VLESS Reality (sing0)",
         "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
         "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
         "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
