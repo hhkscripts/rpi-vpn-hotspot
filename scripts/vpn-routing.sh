@@ -312,7 +312,10 @@ apply_policy() {
     iptables -t nat -C PREROUTING -i "$HOTSPOT_IF" -p tcp --dport 53 ! -d "$HOTSPOT_IP" -j DNAT --to-destination "$HOTSPOT_IP:53" 2>/dev/null ||         iptables -t nat -A PREROUTING -i "$HOTSPOT_IF" -p tcp --dport 53 ! -d "$HOTSPOT_IP" -j DNAT --to-destination "$HOTSPOT_IP:53"
 
     # Reject DNS-over-TLS (port 853) so client devices fall back to standard DNS (AdGuard Home)
-    iptables -C "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -p tcp --dport 853 -j REJECT 2>/dev/null ||         iptables -A "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -p tcp --dport 853 -j REJECT
+    iptables -C "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -p tcp --dport 853 -j REJECT 2>/dev/null || \
+        iptables -I "$IPTABLES_CHAIN" 1 -i "$HOTSPOT_IF" -p tcp --dport 853 -j REJECT
+    iptables -C "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -p udp --dport 853 -j REJECT 2>/dev/null || \
+        iptables -I "$IPTABLES_CHAIN" 1 -i "$HOTSPOT_IF" -p udp --dport 853 -j REJECT
 
     case "$IPV6_LEAK_PROTECTION" in
         drop|1|true|yes)
