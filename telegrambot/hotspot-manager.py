@@ -4,7 +4,9 @@ Raspberry Pi Hotspot Manager - Smart Monitoring
 """
 
 import argparse
+import configparser
 import html
+import json
 import re
 import subprocess
 import os
@@ -237,6 +239,52 @@ def get_configured_ipv6_mode() -> str:
     return "drop"
 
 
+FLAG_MAP = {
+    "sg": "🇸🇬",
+    "jp": "🇯🇵",
+    "us": "🇺🇸",
+    "uk": "🇬🇧",
+    "gb": "🇬🇧",
+    "de": "🇩🇪",
+    "fr": "🇫🇷",
+    "ca": "🇨🇦",
+    "au": "🇦🇺",
+    "nl": "🇳🇱",
+    "hk": "🇭🇰",
+    "in": "🇮🇳",
+    "kr": "🇰🇷",
+    "th": "🇹🇭",
+}
+
+
+def get_configured_unlimited_country() -> str:
+    """Return currently active Unlimited country code or 'direct'."""
+    conf_path = GOODWIFI_CONF
+    if not os.path.exists(conf_path) and os.path.exists(f"/host{GOODWIFI_CONF}"):
+        conf_path = f"/host{GOODWIFI_CONF}"
+
+    if os.path.exists(conf_path):
+        try:
+            with open(conf_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("UNLIMITED_COUNTRY="):
+                        return (
+                            line.split("=", 1)[1].strip().strip('"').strip("'").lower()
+                        )
+        except Exception:
+            pass
+    return "direct"
+
+
+def get_vless_display_name() -> str:
+    unlimited_c = get_configured_unlimited_country()
+    if unlimited_c and unlimited_c not in ["direct", "off", "none"]:
+        flag = FLAG_MAP.get(unlimited_c, "🌐")
+        return f"VLESS [{flag} {unlimited_c.upper()}]"
+    return "VLESS"
+
+
 def get_active_vpn_interface() -> tuple[str, str]:
     """Returns (interface_name, display_name)."""
     ok, out, _ = run_args(["ip", "route", "show", "table", "100"])
@@ -247,7 +295,7 @@ def get_active_vpn_interface() -> tuple[str, str]:
                 if len(parts) >= 3:
                     dev = parts[2]
                     if dev == "sing0":
-                        return "sing0", "VLESS"
+                        return "sing0", get_vless_display_name()
                     elif dev == "awg0":
                         return "awg0", "AmneziaWG"
                     elif dev == "wg0":
@@ -258,7 +306,7 @@ def get_active_vpn_interface() -> tuple[str, str]:
     configured = get_configured_backend()
     if configured in ["sing0", "awg0", "wg0", "tun0"]:
         if configured == "sing0":
-            name = "VLESS"
+            name = get_vless_display_name()
         elif configured == "awg0":
             name = "AmneziaWG"
         elif configured == "wg0":
@@ -268,7 +316,7 @@ def get_active_vpn_interface() -> tuple[str, str]:
         return configured, name
 
     for iface, name in [
-        ("sing0", "VLESS"),
+        ("sing0", get_vless_display_name()),
         ("awg0", "AmneziaWG"),
         ("wg0", "WireGuard"),
         ("tun0", "OpenVPN"),
@@ -279,7 +327,7 @@ def get_active_vpn_interface() -> tuple[str, str]:
 
     ok, _, _ = run_args(["ip", "link", "show", "sing0"])
     if ok:
-        return "sing0", "VLESS"
+        return "sing0", get_vless_display_name()
     ok, _, _ = run_args(["ip", "link", "show", "awg0"])
     if ok:
         return "awg0", "AmneziaWG"
@@ -630,6 +678,161 @@ def switch_vpn(target: str) -> bool:
         ok = apply_vpn_policy(iface)
         refresh_github_routes()
         return ok
+
+
+def get_country_profiles() -> dict[str, dict[str, str]]:
+    """Scan profiles folder for WireGuard .conf files and return country mapping."""
+    candidates = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "profiles"),
+        "/host/etc/goodwifi/profiles",
+        "/etc/goodwifi/profiles",
+        "/app/profiles",
+        os.path.join(os.getcwd(), "profiles"),
+        "profiles",
+    ]
+    profiles_dir = None
+    for c in candidates:
+        if os.path.exists(c) and os.path.isdir(c):
+            profiles_dir = c
+            break
+
+    if not profiles_dir:
+        return {}
+
+    profiles = {}
+    for fname in sorted(os.listdir(profiles_dir)):
+        if not fname.endswith(".conf"):
+            continue
+        m = re.search(r"[-_]([a-z]{2})[-_.]", fname.lower())
+        cc = m.group(1) if m else fname.split(".")[0][-2:].lower()
+        flag = FLAG_MAP.get(cc, "🌐")
+        name_map = {
+            "sg": "Singapore",
+            "jp": "Japan",
+            "us": "United States",
+            "uk": "United Kingdom",
+            "gb": "United Kingdom",
+            "de": "Germany",
+            "fr": "France",
+            "ca": "Canada",
+            "au": "Australia",
+            "nl": "Netherlands",
+            "hk": "Hong Kong",
+            "in": "India",
+            "kr": "South Korea",
+            "th": "Thailand",
+        }
+        profiles[cc] = {
+            "filename": fname,
+            "country_code": cc,
+            "country_name": name_map.get(cc, cc.upper()),
+            "flag": flag,
+            "path": os.path.join(profiles_dir, fname),
+        }
+    return profiles
+
+
+def generate_singbox_config(profile_path: Optional[str] = None) -> dict:
+    """Generate Sing-box config with optional WireGuard endpoint detour via Xray."""
+    cfg = {
+        "log": {"level": "warn"},
+        "inbounds": [
+            {
+                "type": "tun",
+                "tag": "tun-in",
+                "interface_name": "sing0",
+                "address": ["10.99.0.1/30"],
+                "auto_route": False,
+                "strict_route": False,
+                "stack": "system",
+                "sniff": True,
+            }
+        ],
+        "outbounds": [
+            {
+                "type": "socks",
+                "tag": "xray-socks",
+                "server": "127.0.0.1",
+                "server_port": 10808,
+            }
+        ],
+        "route": {"rules": []},
+    }
+
+    if profile_path and os.path.exists(profile_path):
+        cp = configparser.ConfigParser()
+        cp.read(profile_path)
+        iface = cp["Interface"]
+        peer = cp["Peer"]
+        endpoint = peer.get("endpoint", "")
+        server_ip, server_port = endpoint.split(":")
+
+        ep = {
+            "type": "wireguard",
+            "tag": "wg-out",
+            "system": False,
+            "address": [a.strip() for a in iface.get("address", "").split(",")],
+            "private_key": iface.get("privatekey", ""),
+            "peers": [
+                {
+                    "address": server_ip.strip(),
+                    "port": int(server_port.strip()),
+                    "public_key": peer.get("publickey", ""),
+                    "allowed_ips": ["0.0.0.0/0"],
+                }
+            ],
+            "detour": "xray-socks",
+        }
+        if peer.get("presharedkey"):
+            ep["peers"][0]["pre_shared_key"] = peer.get("presharedkey").strip()
+
+        cfg["endpoints"] = [ep]
+        cfg["route"]["rules"].append({"inbound": ["tun-in"], "outbound": "wg-out"})
+    else:
+        cfg["route"]["rules"].append({"inbound": ["tun-in"], "outbound": "xray-socks"})
+
+    return cfg
+
+
+def switch_unlimited_country(country: str) -> bool:
+    """Switch Sing-box exit country using KeepSolid profile detour."""
+    country = country.lower().strip()
+    profiles = get_country_profiles()
+
+    profile_path = None
+    if country not in ["direct", "off", "none"]:
+        if country not in profiles:
+            log(f"Country profile '{country}' not found.", "ERROR")
+            return False
+        profile_path = profiles[country]["path"]
+
+    cfg = generate_singbox_config(profile_path)
+    config_path = get_host_path("/etc/sing-box/config.json")
+
+    import tempfile
+
+    with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+        json.dump(cfg, tf, indent=2)
+        tmp_name = tf.name
+
+    run_args(["sudo", "mkdir", "-p", os.path.dirname(config_path)])
+    run_args(["sudo", "cp", tmp_name, config_path])
+    run_args(["sudo", "chmod", "0644", config_path])
+    os.unlink(tmp_name)
+
+    update_goodwifi_conf("UNLIMITED_COUNTRY", country)
+
+    # If backend is not sing0, switch to sing0
+    if get_configured_backend() != "sing0":
+        switch_vpn("sing0")
+    else:
+        run_args(["sudo", "systemctl", "restart", "xray", "sing-box"], timeout=20)
+        wait_for_interface("sing0", timeout=10)
+        apply_vpn_policy("sing0")
+        refresh_github_routes()
+
+    log(f"Switched Multi-Country exit to {country.upper()}", "SUCCESS")
+    return True
 
 
 def switch_reality_server(server_num: str) -> bool:
@@ -1064,7 +1267,7 @@ def print_status(status: HotspotStatus, telegram_format: bool = False) -> str:
             or iface == "sing0"
         ):
             vpn_header_emoji = EMOJI_SINGBOX
-            conn_badge = f"{EMOJI_SINGBOX} VLESS"
+            conn_badge = f"{EMOJI_SINGBOX} {get_vless_display_name()}"
         elif "amnezia" in backend.lower() or iface == "awg0":
             vpn_header_emoji = EMOJI_AMNEZIAWG
             conn_badge = f"{EMOJI_AMNEZIAWG} AmneziaWG"
@@ -1222,6 +1425,21 @@ def main() -> None:
         ),
     )
     parser.add_argument(
+        "--unlimited-country",
+        dest="unlimited_country",
+        help="Switch VPN Unlimited exit country (e.g. sg, jp, direct)",
+    )
+    parser.add_argument(
+        "--list-countries",
+        action="store_true",
+        help="List available VPN Unlimited country profiles",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Output in JSON format",
+    )
+    parser.add_argument(
         "--set-ipv6",
         "--ipv6",
         dest="set_ipv6",
@@ -1257,6 +1475,23 @@ def main() -> None:
         refresh_github_routes()
         print("Routes refreshed successfully.")
         sys.exit(0)
+
+    if args.list_countries:
+        profs = get_country_profiles()
+        if args.json:
+            print(json.dumps(profs))
+        else:
+            for cc, p in profs.items():
+                print(
+                    f"{p['flag']} {cc.upper()}: {p['country_name']} ({p['filename']})"
+                )
+        sys.exit(0)
+
+    if args.unlimited_country:
+        success = switch_unlimited_country(args.unlimited_country)
+        output = print_status(get_status(), telegram_format=telegram_format)
+        print(output)
+        sys.exit(0 if success else 1)
 
     if args.reality_server:
         num = "1" if args.reality_server in ["1", "server-1"] else "2"

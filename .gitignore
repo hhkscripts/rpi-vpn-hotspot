@@ -38,6 +38,9 @@ telegrambot/venv/
 .env.local
 .env.*
 !.env.example
+profiles/
+*.conf
+!configs/*.conf
 
 # Runtime service state
 pihole/

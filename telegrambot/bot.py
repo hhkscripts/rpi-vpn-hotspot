@@ -56,6 +56,7 @@ EMOJI_SINGBOX = EMOJI_VLESS  # 🛡 Sing-box Reality (VLESS)
 EMOJI_RPI = "6165792622787961093"  # 🍓 Raspberry Pi
 EMOJI_ADGUARD = "6165657271188594962"  # 🛡 AdGuard
 EMOJI_IPV6 = "6165466570345686935"  # 🔒 IPv6
+EMOJI_GLOBE = "6057443049020071219"  # 🌐 Globe
 
 # HTML formatted Telegram Premium Custom Emojis (for in-text messages)
 TG_EMOJI_WIREGUARD = f'<tg-emoji emoji-id="{EMOJI_WIREGUARD}">🐉</tg-emoji>'
@@ -66,6 +67,24 @@ TG_EMOJI_SINGBOX = TG_EMOJI_VLESS
 TG_EMOJI_RPI = f'<tg-emoji emoji-id="{EMOJI_RPI}">🍓</tg-emoji>'
 TG_EMOJI_ADGUARD = f'<tg-emoji emoji-id="{EMOJI_ADGUARD}">🛡</tg-emoji>'
 TG_EMOJI_IPV6 = f'<tg-emoji emoji-id="{EMOJI_IPV6}">🔒</tg-emoji>'
+TG_EMOJI_GLOBE = f'<tg-emoji emoji-id="{EMOJI_GLOBE}">🌐</tg-emoji>'
+
+FLAG_MAP = {
+    "sg": "🇸🇬",
+    "jp": "🇯🇵",
+    "us": "🇺🇸",
+    "uk": "🇬🇧",
+    "gb": "🇬🇧",
+    "de": "🇩🇪",
+    "fr": "🇫🇷",
+    "ca": "🇨🇦",
+    "au": "🇦🇺",
+    "nl": "🇳🇱",
+    "hk": "🇭🇰",
+    "in": "🇮🇳",
+    "kr": "🇰🇷",
+    "th": "🇹🇭",
+}
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
@@ -224,7 +243,14 @@ def make_status_keyboard(status_text: str) -> InlineKeyboardMarkup:
         callback_data="refresh_status",
         icon_custom_emoji_id=EMOJI_REFRESH,
     )
-    return InlineKeyboardMarkup([[switch_btn], [ipv6_btn, adguard_btn], [refresh_btn]])
+    country_btn = InlineKeyboardButton(
+        "Exit Country",
+        callback_data="menu_country",
+        icon_custom_emoji_id=EMOJI_GLOBE,
+    )
+    return InlineKeyboardMarkup(
+        [[switch_btn], [country_btn, ipv6_btn], [adguard_btn, refresh_btn]]
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -239,6 +265,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"• <code>status</code> - Show hotspot and VPN status\n"
         f"• <code>switch_vpn &lt;sing0|awg0|tun0|wg0|auto&gt;</code> - "
         f"Switch active VPN backend\n"
+        f"• {TG_EMOJI_GLOBE} <code>country &lt;sg|jp|direct&gt;</code> - "
+        f"Switch exit country (VPN Unlimited)\n"
         f"• {TG_EMOJI_IPV6} <code>ipv6 &lt;drop|reject|off&gt;</code> - "
         f"Configure IPv6 leak protection\n"
         f"• {TG_EMOJI_ADGUARD} <code>adguard &lt;on|off|restart&gt;</code> - "
@@ -317,6 +345,84 @@ async def refresh_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             logger.warning(f"Could not edit message: {e}")
 
 
+def get_current_unlimited_country() -> str:
+    conf_path = "/host/etc/goodwifi/goodwifi.conf"
+    if not os.path.exists(conf_path):
+        conf_path = "/etc/goodwifi/goodwifi.conf"
+    if os.path.exists(conf_path):
+        try:
+            with open(conf_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("UNLIMITED_COUNTRY="):
+                        return (
+                            line.split("=", 1)[1].strip().strip('"').strip("'").lower()
+                        )
+        except Exception:
+            pass
+    return "direct"
+
+
+def get_bot_country_profiles() -> dict[str, dict[str, str]]:
+    candidates = [
+        "/host/etc/goodwifi/profiles",
+        "/etc/goodwifi/profiles",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "profiles"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "profiles"),
+        "/app/profiles",
+        "profiles",
+    ]
+    profiles_dir = None
+    for c in candidates:
+        if os.path.exists(c) and os.path.isdir(c):
+            profiles_dir = c
+            break
+
+    if profiles_dir:
+        profiles = {}
+        for fname in sorted(os.listdir(profiles_dir)):
+            if not fname.endswith(".conf"):
+                continue
+            m = re.search(r"[-_]([a-z]{2})[-_.]", fname.lower())
+            cc = m.group(1) if m else fname.split(".")[0][-2:].lower()
+            flag = FLAG_MAP.get(cc, "🌐")
+            name_map = {
+                "sg": "Singapore",
+                "jp": "Japan",
+                "us": "United States",
+                "uk": "United Kingdom",
+                "gb": "United Kingdom",
+                "de": "Germany",
+                "fr": "France",
+                "ca": "Canada",
+                "au": "Australia",
+                "nl": "Netherlands",
+                "hk": "Hong Kong",
+                "in": "India",
+                "kr": "South Korea",
+                "th": "Thailand",
+            }
+            profiles[cc] = {
+                "filename": fname,
+                "country_code": cc,
+                "country_name": name_map.get(cc, cc.upper()),
+                "flag": flag,
+                "path": os.path.join(profiles_dir, fname),
+            }
+        if profiles:
+            return profiles
+
+    # Fallback to query host via hotspot-manager.py --list-countries --json
+    stdout, _, code = run_hotspot_command(["--list-countries", "--json"])
+    if code == 0 and stdout.strip():
+        try:
+            return json.loads(stdout.strip())
+        except Exception:
+            pass
+
+    return {}
+
+
 def get_current_backend_name() -> str:
     conf_path = "/host/etc/goodwifi/goodwifi.conf"
     if not os.path.exists(conf_path):
@@ -330,8 +436,14 @@ def get_current_backend_name() -> str:
                         backend = line.split("=", 1)[1].strip().strip('"').strip("'")
         except Exception:
             pass
+    unlimited_c = get_current_unlimited_country()
+    vless_label = f"{TG_EMOJI_VLESS} VLESS Reality (sing0)"
+    if unlimited_c and unlimited_c not in ["direct", "off", "none"]:
+        flag = FLAG_MAP.get(unlimited_c, "🌐")
+        vless_label += f" [{flag} {unlimited_c.upper()}]"
+
     names = {
-        "sing0": f"{TG_EMOJI_VLESS} VLESS Reality (sing0)",
+        "sing0": vless_label,
         "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
         "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
         "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
@@ -727,6 +839,13 @@ async def switch_menu_command(
         ],
         [
             InlineKeyboardButton(
+                "🌐 Exit Country (VPN Unlimited)",
+                callback_data="menu_country",
+                icon_custom_emoji_id=EMOJI_GLOBE,
+            ),
+        ],
+        [
+            InlineKeyboardButton(
                 "Auto (Auto Select)",
                 callback_data="switch_auto",
                 icon_custom_emoji_id=EMOJI_REFRESH,
@@ -762,6 +881,62 @@ async def switch_vpn_callback(
         return
 
     data = query.data
+    if data == "menu_switch":
+        current = get_current_backend_name()
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    "VLESS S1 (198.71)",
+                    callback_data="switch_reality_1",
+                    icon_custom_emoji_id=EMOJI_VLESS,
+                ),
+                InlineKeyboardButton(
+                    "VLESS S2 (5.183)",
+                    callback_data="switch_reality_2",
+                    icon_custom_emoji_id=EMOJI_VLESS,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "AmneziaWG (awg0)",
+                    callback_data="switch_awg0",
+                    icon_custom_emoji_id=EMOJI_AMNEZIAWG,
+                ),
+                InlineKeyboardButton(
+                    "OpenVPN (tun0)",
+                    callback_data="switch_tun0",
+                    icon_custom_emoji_id=EMOJI_OPENVPN,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "🌐 Exit Country (VPN Unlimited)",
+                    callback_data="menu_country",
+                    icon_custom_emoji_id=EMOJI_GLOBE,
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    "Auto (Auto Select)",
+                    callback_data="switch_auto",
+                    icon_custom_emoji_id=EMOJI_REFRESH,
+                ),
+            ],
+        ]
+        text = (
+            f"<b>Select VPN Backend:</b>\n\n"
+            f"Active: {current}\n\n"
+            f"Choose an option below to switch:"
+        )
+        try:
+            await query.edit_message_text(
+                text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="HTML"
+            )
+            await query.answer()
+        except Exception:
+            pass
+        return
+
     loop = asyncio.get_running_loop()
 
     if data.startswith("switch_reality_"):
@@ -858,6 +1033,205 @@ async def switch_vpn_command(
     status_text = await get_status_text()
     reply_markup = make_status_keyboard(status_text)
 
+    if update.message:
+        await update.message.reply_text(
+            text=status_text, reply_markup=reply_markup, parse_mode="HTML"
+        )
+
+
+def make_country_keyboard() -> InlineKeyboardMarkup:
+    profiles = get_bot_country_profiles()
+    keyboard = []
+    row = []
+    for cc, p in sorted(profiles.items()):
+        flag = p.get("flag", FLAG_MAP.get(cc, "🌐"))
+        cname = p.get("country_name", cc.upper())
+        label = f"{flag} {cname}"
+        btn = InlineKeyboardButton(label, callback_data=f"country_{cc}")
+        row.append(btn)
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                "🌐 Direct VPS (No Detour)",
+                callback_data="country_direct",
+                icon_custom_emoji_id=EMOJI_GLOBE,
+            )
+        ]
+    )
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                "🔙 Back to VPN Backends", callback_data="menu_switch"
+            ),
+            InlineKeyboardButton(
+                "Refresh",
+                callback_data="refresh_status",
+                icon_custom_emoji_id=EMOJI_REFRESH,
+            ),
+        ]
+    )
+    return InlineKeyboardMarkup(keyboard)
+
+
+async def country_menu_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    if update.effective_user is None or not check_authorization(
+        update.effective_user.id
+    ):
+        return
+
+    profiles = get_bot_country_profiles()
+    current_c = get_current_unlimited_country()
+    if current_c in profiles:
+        p = profiles[current_c]
+        cname = p.get("country_name", current_c.upper())
+        flag = p.get("flag", "🌐")
+        current_display = f"{flag} {cname} ({current_c.upper()})"
+    elif current_c in ["direct", "off", "none"]:
+        current_display = "🌐 Direct VPS (No Unlimited Detour)"
+    else:
+        current_display = current_c.upper()
+
+    reply_markup = make_country_keyboard()
+    text = (
+        f"<b>{TG_EMOJI_GLOBE} Select Exit Country (VPN Unlimited):</b>\n\n"
+        f"Active Exit: <b>{current_display}</b>\n\n"
+        f"Traffic detours through your VLESS Reality VPS first (bypassing DPI), "
+        f"then exits through VPN Unlimited in the selected country.\n\n"
+        f"Choose an exit country below:"
+    )
+    if update.message:
+        await update.message.reply_text(
+            text, reply_markup=reply_markup, parse_mode="HTML"
+        )
+
+
+async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    if query is None or query.data is None:
+        return
+    if update.effective_user is None or not check_authorization(
+        update.effective_user.id
+    ):
+        try:
+            await query.answer("Unauthorized", show_alert=True)
+        except Exception:
+            pass
+        return
+
+    data = query.data
+    if data == "menu_country":
+        profiles = get_bot_country_profiles()
+        current_c = get_current_unlimited_country()
+        if current_c in profiles:
+            p = profiles[current_c]
+            cname = p.get("country_name", current_c.upper())
+            flag = p.get("flag", "🌐")
+            current_display = f"{flag} {cname} ({current_c.upper()})"
+        elif current_c in ["direct", "off", "none"]:
+            current_display = "🌐 Direct VPS (No Unlimited Detour)"
+        else:
+            current_display = current_c.upper()
+
+        reply_markup = make_country_keyboard()
+        text = (
+            f"<b>{TG_EMOJI_GLOBE} Select Exit Country (VPN Unlimited):</b>\n\n"
+            f"Active Exit: <b>{current_display}</b>\n\n"
+            f"Traffic detours through your VLESS Reality VPS first (bypassing DPI), "
+            f"then exits through VPN Unlimited in the selected country.\n\n"
+            f"Choose an exit country below:"
+        )
+        try:
+            await query.edit_message_text(
+                text, reply_markup=reply_markup, parse_mode="HTML"
+            )
+            await query.answer()
+        except Exception:
+            pass
+        return
+
+    country = data.replace("country_", "")
+    profiles = get_bot_country_profiles()
+    if country in profiles:
+        p = profiles[country]
+        target_name = f"{p.get('flag', '🌐')} {p.get('country_name', country.upper())}"
+    elif country == "direct":
+        target_name = "Direct VPS (No Unlimited Detour)"
+    else:
+        target_name = country.upper()
+
+    wait_msg = f"Switching exit country to {target_name}..."
+    try:
+        await query.answer(wait_msg)
+    except Exception:
+        pass
+
+    try:
+        await query.edit_message_text(f"⏳ <i>{wait_msg}</i>", parse_mode="HTML")
+    except Exception:
+        pass
+
+    loop = asyncio.get_running_loop()
+    _, _, code = await loop.run_in_executor(
+        None, run_hotspot_command, ["--unlimited-country", country]
+    )
+    await asyncio.sleep(2)
+    status_text = await get_status_text()
+    reply_markup = make_status_keyboard(status_text)
+
+    try:
+        if code == 0:
+            await query.edit_message_text(
+                text=f"<b>Switched Exit Country to {target_name}!</b>\n\n{status_text}",
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
+        else:
+            fail_text = (
+                f"⚠️ <b>Failed to switch Exit Country to {target_name}</b>\n\n"
+                f"{status_text}"
+            )
+            await query.edit_message_text(
+                text=fail_text,
+                reply_markup=reply_markup,
+                parse_mode="HTML",
+            )
+    except Exception as e:
+        if "not modified" not in str(e).lower():
+            logger.warning(f"Could not edit message after country switch: {e}")
+
+
+async def country_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user is None or not check_authorization(
+        update.effective_user.id
+    ):
+        return
+
+    args = context.args if context.args else []
+    if not args:
+        await country_menu_command(update, context)
+        return
+
+    target = args[0].lower()
+    loop = asyncio.get_running_loop()
+    if update.message:
+        await update.message.reply_text(
+            f"⏳ <i>Switching exit country to {target.upper()}...</i>",
+            parse_mode="HTML",
+        )
+    await loop.run_in_executor(
+        None, run_hotspot_command, ["--unlimited-country", target]
+    )
+    await asyncio.sleep(2)
+    status_text = await get_status_text()
+    reply_markup = make_status_keyboard(status_text)
     if update.message:
         await update.message.reply_text(
             text=status_text, reply_markup=reply_markup, parse_mode="HTML"
@@ -1057,6 +1431,26 @@ async def handle_text_message(
         await clients_command(update, context)
     elif text in ["help"] or normalized == "help":
         await help_command(update, context)
+    elif text in [
+        "country",
+        "countries",
+        "exit country",
+        "exit_country",
+        "/country",
+        "/countries",
+    ] or normalized in [
+        "country",
+        "countries",
+        "exit_country",
+    ]:
+        await country_menu_command(update, context)
+    elif text.startswith("country") or text.startswith("/country"):
+        parts = text.split()
+        if len(parts) > 1:
+            context.args = [parts[1]]
+            await country_command(update, context)
+        else:
+            await country_menu_command(update, context)
     elif (
         text.startswith("switch_vpn")
         or text.startswith("switch ")
@@ -1091,16 +1485,27 @@ def main():
         app.add_handler(CommandHandler("restart_vpn", restart_vpn_command))
         app.add_handler(CommandHandler("switch_vpn", switch_vpn_command))
         app.add_handler(CommandHandler("switch", switch_menu_command))
+        app.add_handler(CommandHandler("country", country_command))
+        app.add_handler(CommandHandler("countries", country_command))
         app.add_handler(CommandHandler("fix", fix_command))
         app.add_handler(CommandHandler("clients", clients_command))
         app.add_handler(CommandHandler("help", help_command))
         app.add_handler(CommandHandler("ipv6", ipv6_command))
         app.add_handler(CommandHandler("adguard", adguard_command))
 
+        switch_pattern = (
+            r"^(switch_(sing0|reality_1|reality_2|awg0|tun0|wg0|auto)|menu_switch)$"
+        )
         app.add_handler(
             CallbackQueryHandler(
                 switch_vpn_callback,
-                pattern="^switch_(sing0|reality_1|reality_2|awg0|tun0|wg0|auto)$",
+                pattern=switch_pattern,
+            )
+        )
+        app.add_handler(
+            CallbackQueryHandler(
+                country_callback,
+                pattern="^(country_|menu_country)",
             )
         )
         app.add_handler(
