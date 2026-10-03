@@ -280,7 +280,8 @@ def get_configured_unlimited_country() -> str:
 def get_vless_display_name() -> str:
     unlimited_c = get_configured_unlimited_country()
     if unlimited_c and unlimited_c not in ["direct", "off", "none"]:
-        flag = FLAG_MAP.get(unlimited_c, "🌐")
+        base_cc = unlimited_c.split("-")[0]
+        flag = FLAG_MAP.get(base_cc, "🌐")
         return f"VLESS [{flag} {unlimited_c.upper()}]"
     return "VLESS"
 
@@ -445,20 +446,21 @@ def check_vpn_ip() -> tuple[bool, str]:
 def check_vpn_external_ip() -> tuple[bool, str]:
     iface, _ = get_active_vpn_interface()
     for candidate in [iface, "sing0", "awg0", "wg0", "tun0"]:
-        ok, out, _ = run_args(
-            [
-                "curl",
-                "-4",
-                "-s",
-                "--max-time",
-                "8",
-                "--interface",
-                candidate,
-                "https://ifconfig.me",
-            ]
-        )
-        if ok and out and out.strip():
-            return True, out.strip()
+        for url in ["https://api.ipify.org", "https://ifconfig.me"]:
+            ok, out, _ = run_args(
+                [
+                    "curl",
+                    "-4",
+                    "-s",
+                    "--max-time",
+                    "5",
+                    "--interface",
+                    candidate,
+                    url,
+                ]
+            )
+            if ok and out and out.strip():
+                return True, out.strip()
     return False, "None"
 
 
@@ -681,7 +683,7 @@ def switch_vpn(target: str) -> bool:
 
 
 def get_country_profiles() -> dict[str, dict[str, str]]:
-    """Scan profiles folder for WireGuard .conf files and return country mapping."""
+    """Scan profiles folder for WireGuard (.conf) and OpenVPN (.ovpn) files."""
     candidates = [
         os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "profiles"),
         "/host/etc/goodwifi/profiles",
@@ -700,32 +702,41 @@ def get_country_profiles() -> dict[str, dict[str, str]]:
         return {}
 
     profiles = {}
+    name_map = {
+        "sg": "Singapore",
+        "jp": "Japan",
+        "us": "United States",
+        "uk": "United Kingdom",
+        "gb": "United Kingdom",
+        "de": "Germany",
+        "fr": "France",
+        "ca": "Canada",
+        "au": "Australia",
+        "nl": "Netherlands",
+        "hk": "Hong Kong",
+        "in": "India",
+        "kr": "South Korea",
+        "th": "Thailand",
+    }
     for fname in sorted(os.listdir(profiles_dir)):
-        if not fname.endswith(".conf"):
+        if not (fname.endswith(".conf") or fname.endswith(".ovpn")):
             continue
-        m = re.search(r"[-_]([a-z]{2})[-_.]", fname.lower())
+        m = re.search(r"[-_]([a-z]{2}(?:-[a-z]{2,3})?)[-_.]", fname.lower())
         cc = m.group(1) if m else fname.split(".")[0][-2:].lower()
-        flag = FLAG_MAP.get(cc, "🌐")
-        name_map = {
-            "sg": "Singapore",
-            "jp": "Japan",
-            "us": "United States",
-            "uk": "United Kingdom",
-            "gb": "United Kingdom",
-            "de": "Germany",
-            "fr": "France",
-            "ca": "Canada",
-            "au": "Australia",
-            "nl": "Netherlands",
-            "hk": "Hong Kong",
-            "in": "India",
-            "kr": "South Korea",
-            "th": "Thailand",
-        }
+        base_cc = cc.split("-")[0]
+        flag = FLAG_MAP.get(base_cc, "🌐")
+        cname = name_map.get(base_cc, base_cc.upper())
+        if "-" in cc:
+            cname += " (" + cc.split("-")[1].upper() + ")"
+
+        # If cc already registered as WireGuard (.conf), keep WireGuard
+        if cc in profiles and profiles[cc]["filename"].endswith(".conf") and fname.endswith(".ovpn"):
+            continue
+
         profiles[cc] = {
             "filename": fname,
             "country_code": cc,
-            "country_name": name_map.get(cc, cc.upper()),
+            "country_name": cname,
             "flag": flag,
             "path": os.path.join(profiles_dir, fname),
         }
@@ -733,7 +744,7 @@ def get_country_profiles() -> dict[str, dict[str, str]]:
 
 
 def generate_singbox_config(profile_path: Optional[str] = None) -> dict:
-    """Generate Sing-box config with optional WireGuard endpoint detour via Xray."""
+    """Generate Sing-box config with optional WireGuard or OpenVPN endpoint detour via Xray."""
     cfg = {
         "log": {"level": "warn"},
         "inbounds": [
@@ -760,34 +771,92 @@ def generate_singbox_config(profile_path: Optional[str] = None) -> dict:
 
     if profile_path and os.path.exists(profile_path):
         try:
-            cp = configparser.ConfigParser()
-            cp.read(profile_path)
-            iface = cp["Interface"]
-            peer = cp["Peer"]
-            endpoint = peer.get("endpoint", "")
-            server_ip, server_port = endpoint.split(":")
+            if profile_path.endswith(".ovpn"):
+                with open(profile_path, "r", encoding="utf-8") as f:
+                    content = f.read()
 
-            ep = {
-                "type": "wireguard",
-                "tag": "wg-out",
-                "system": False,
-                "address": [a.strip() for a in iface.get("address", "").split(",")],
-                "private_key": iface.get("privatekey", ""),
-                "peers": [
-                    {
-                        "address": server_ip.strip(),
-                        "port": int(server_port.strip()),
-                        "public_key": peer.get("publickey", ""),
-                        "allowed_ips": ["0.0.0.0/0"],
-                    }
-                ],
-                "detour": "xray-socks",
-            }
-            if peer.get("presharedkey"):
-                ep["peers"][0]["pre_shared_key"] = peer.get("presharedkey").strip()
+                ca_m = re.search(r"<ca>\s*(.*?)\s*</ca>", content, re.DOTALL)
+                cert_m = re.search(r"<cert>\s*(.*?)\s*</cert>", content, re.DOTALL)
+                key_m = re.search(r"<key>\s*(.*?)\s*</key>", content, re.DOTALL)
 
-            cfg["endpoints"] = [ep]
-            cfg["route"]["rules"].append({"inbound": ["tun-in"], "outbound": "wg-out"})
+                ca = ca_m.group(1).strip() if ca_m else ""
+                cert = cert_m.group(1).strip() if cert_m else ""
+                key = key_m.group(1).strip() if key_m else ""
+
+                remote_m = re.search(r"^\s*remote\s+([^\s]+)", content, re.MULTILINE)
+                port_m = re.search(r"^\s*port\s+(\d+)", content, re.MULTILINE)
+                server_host = remote_m.group(1).strip() if remote_m else "127.0.0.1"
+                server_port = int(port_m.group(1).strip()) if port_m else 1197
+
+                server_ip = server_host
+                try:
+                    res = subprocess.run(
+                        ["dig", "@127.0.0.1", "-p", "53", server_host, "+short"],
+                        capture_output=True,
+                        text=True,
+                        timeout=3,
+                    )
+                    ips = [
+                        line.strip()
+                        for line in res.stdout.splitlines()
+                        if line.strip() and not line.startswith(";")
+                    ]
+                    if ips:
+                        server_ip = ips[0]
+                except Exception:
+                    pass
+
+                ep = {
+                    "type": "openvpn-client",
+                    "tag": "ovpn-out",
+                    "server": server_ip,
+                    "server_port": server_port,
+                    "data_ciphers": ["AES-256-GCM", "AES-256-CBC"],
+                    "auth": "SHA512",
+                    "tls": {
+                        "server_name": "server.ironnodes.com",
+                        "certificate": [ca],
+                        "client_certificate": [cert],
+                        "client_key": [key],
+                    },
+                    "detour": "xray-socks",
+                }
+                cfg["endpoints"] = [ep]
+                cfg["route"]["rules"].append(
+                    {"inbound": ["tun-in"], "outbound": "ovpn-out"}
+                )
+
+            elif profile_path.endswith(".conf"):
+                cp = configparser.ConfigParser()
+                cp.read(profile_path)
+                iface = cp["Interface"]
+                peer = cp["Peer"]
+                endpoint = peer.get("endpoint", "")
+                server_ip, server_port = endpoint.split(":")
+
+                ep = {
+                    "type": "wireguard",
+                    "tag": "wg-out",
+                    "system": False,
+                    "address": [a.strip() for a in iface.get("address", "").split(",")],
+                    "private_key": iface.get("privatekey", ""),
+                    "peers": [
+                        {
+                            "address": server_ip.strip(),
+                            "port": int(server_port.strip()),
+                            "public_key": peer.get("publickey", ""),
+                            "allowed_ips": ["0.0.0.0/0"],
+                        }
+                    ],
+                    "detour": "xray-socks",
+                }
+                if peer.get("presharedkey"):
+                    ep["peers"][0]["pre_shared_key"] = peer.get("presharedkey").strip()
+
+                cfg["endpoints"] = [ep]
+                cfg["route"]["rules"].append(
+                    {"inbound": ["tun-in"], "outbound": "wg-out"}
+                )
         except Exception as e:
             log(f"Error parsing profile {profile_path}: {e}", "ERROR")
             cfg["route"]["rules"].append(
@@ -831,16 +900,16 @@ def switch_unlimited_country(country: str) -> bool:
     if get_configured_backend() != "sing0":
         switch_vpn("sing0")
     else:
-        run_args(["sudo", "systemctl", "restart", "xray", "sing-box"], timeout=20)
+        run_args(["sudo", "systemctl", "restart", "sing-box"], timeout=20)
         wait_for_interface("sing0", timeout=10)
         apply_vpn_policy("sing0")
         refresh_github_routes()
 
     if country not in ["direct", "off", "none"]:
-        time.sleep(2)
+        time.sleep(4)
         ok_ext, _ = check_vpn_external_ip()
         if not ok_ext:
-            time.sleep(2)
+            time.sleep(3)
             ok_ext, _ = check_vpn_external_ip()
         if not ok_ext:
             log(
