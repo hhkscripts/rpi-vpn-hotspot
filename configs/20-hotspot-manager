@@ -48,6 +48,9 @@ case "${2:-}" in
                     if [ -x "$POLICY_SCRIPT" ]; then
                         "$POLICY_SCRIPT" "$active_if" apply >> "$LOG_FILE" 2>&1 || true
                     fi
+                    if [ -x /usr/local/bin/apply-routes.sh ]; then
+                        /usr/local/bin/apply-routes.sh >> "$LOG_FILE" 2>&1 || true
+                    fi
                     if [ -x /usr/local/bin/github-vpn-routes.sh ]; then
                         /usr/local/bin/github-vpn-routes.sh >> "$LOG_FILE" 2>&1 || true
                     fi

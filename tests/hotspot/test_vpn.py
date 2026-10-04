@@ -41,12 +41,39 @@ class RestartVpnTests(unittest.TestCase):
     def test_github_refresh_allows_sufficient_runtime(self):
         with (
             patch.object(hotspot_manager, "run_args") as run,
+            patch.object(hotspot_manager, "APPLY_ROUTE_SCRIPT", "/apply-routes"),
             patch.object(hotspot_manager, "GITHUB_ROUTE_SCRIPT", "/route-refresh"),
         ):
-            run.side_effect = [(True, "", ""), (True, "", "")]
+            run.side_effect = [
+                (True, "", ""),
+                (True, "", ""),
+                (True, "", ""),
+                (True, "", ""),
+            ]
             hotspot_manager.refresh_github_routes()
 
-        self.assertEqual(run.call_args_list[1].kwargs["timeout"], 120)
+        self.assertEqual(run.call_args_list[1].kwargs["timeout"], 60)
+        self.assertEqual(run.call_args_list[3].kwargs["timeout"], 120)
+
+    def test_routes_refresh_runs_both_apply_and_github_scripts(self):
+        with (
+            patch.object(hotspot_manager, "run_args") as run,
+            patch.object(hotspot_manager, "APPLY_ROUTE_SCRIPT", "/apply-routes"),
+            patch.object(hotspot_manager, "GITHUB_ROUTE_SCRIPT", "/github-routes"),
+        ):
+            run.side_effect = [
+                (True, "", ""),
+                (True, "", ""),
+                (True, "", ""),
+                (True, "", ""),
+            ]
+            ok = hotspot_manager.refresh_routes()
+            self.assertTrue(ok)
+
+        self.assertEqual(run.call_args_list[0].args[0], ["test", "-x", "/apply-routes"])
+        self.assertEqual(run.call_args_list[1].args[0], ["sudo", "/apply-routes"])
+        self.assertEqual(run.call_args_list[2].args[0], ["test", "-x", "/github-routes"])
+        self.assertEqual(run.call_args_list[3].args[0], ["sudo", "/github-routes"])
 
 
 class SingboxBackendTests(unittest.TestCase):

@@ -52,24 +52,41 @@ def apply_vpn_policy(interface: Optional[str] = None) -> bool:
     return True
 
 
-def refresh_github_routes() -> None:
+def refresh_routes() -> bool:
+    """Compile and apply modular local/VPN routes and refresh GitHub CIDRs.
+
+    Ensures local_routes (Binance, Banking bypass) and vpn_routes are synchronized
+    to AdGuard Home and kernel ipsets, followed by refreshing GitHub IP ranges.
+    """
     ctx = Context.get()
     runner = getattr(ctx, "run_args", run_args)
     logger = getattr(ctx, "log", log)
     gh_script = getattr(ctx, "GITHUB_ROUTE_SCRIPT", GITHUB_ROUTE_SCRIPT)
     ap_script = getattr(ctx, "APPLY_ROUTE_SCRIPT", APPLY_ROUTE_SCRIPT)
 
-    ok, _, _ = runner(["test", "-x", gh_script])
-    if ok:
-        ok, _, err = runner(["sudo", gh_script], timeout=120)
-        if not ok:
-            detail = f": {err}" if err else ""
-            logger(f"GitHub route refresh failed{detail}", "WARN")
-        return
+    all_ok = True
 
+    # 1. Primary: Apply modular local_routes & vpn_routes via apply-routes.sh
     ok, _, _ = runner(["test", "-x", ap_script])
     if ok:
-        ok, _, err = runner(["sudo", ap_script], timeout=60)
-        if not ok:
+        ap_ok, _, err = runner(["sudo", ap_script], timeout=60)
+        if not ap_ok:
+            all_ok = False
             detail = f": {err}" if err else ""
             logger(f"Route apply failed{detail}", "WARN")
+
+    # 2. Secondary: Refresh published GitHub CIDRs into vpn_routes if script present
+    ok, _, _ = runner(["test", "-x", gh_script])
+    if ok:
+        gh_ok, _, err = runner(["sudo", gh_script], timeout=120)
+        if not gh_ok:
+            all_ok = False
+            detail = f": {err}" if err else ""
+            logger(f"GitHub route refresh failed{detail}", "WARN")
+
+    return all_ok
+
+
+# Backward-compatible alias for existing callers and external integrations
+refresh_github_routes = refresh_routes
+

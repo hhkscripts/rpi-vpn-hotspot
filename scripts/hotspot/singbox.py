@@ -186,7 +186,7 @@ def switch_unlimited_country(country: str) -> bool:
         runner(["sudo", "systemctl", "restart", "sing-box"], timeout=20)
         getattr(ctx, "wait_for_interface")("sing0", timeout=10)
         getattr(ctx, "apply_vpn_policy")("sing0")
-        getattr(ctx, "refresh_github_routes")()
+        getattr(ctx, "refresh_routes", getattr(ctx, "refresh_github_routes"))()
 
     if country not in ["direct", "off", "none"]:
         time.sleep(4)

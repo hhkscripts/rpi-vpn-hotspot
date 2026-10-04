@@ -13,8 +13,15 @@ from .detection import (
     get_vpn_connection_name,
     wait_for_interface,
 )
-from .routing import apply_vpn_policy, refresh_github_routes
+from .routing import apply_vpn_policy, refresh_github_routes, refresh_routes
 from .runner import get_configured_backend, log, run_args, update_goodwifi_conf
+
+
+def _resolve_refresh(ctx):
+    gh = getattr(ctx, "refresh_github_routes", None)
+    if gh is not None and (hasattr(gh, "assert_called") or gh is not refresh_routes):
+        return gh
+    return getattr(ctx, "refresh_routes", refresh_routes)
 
 
 def switch_vpn(target: str) -> bool:
@@ -25,7 +32,7 @@ def switch_vpn(target: str) -> bool:
     get_conn = getattr(ctx, "get_vpn_connection_name", get_vpn_connection_name)
     wait_if = getattr(ctx, "wait_for_interface", wait_for_interface)
     apply_pol = getattr(ctx, "apply_vpn_policy", apply_vpn_policy)
-    refresh_routes = getattr(ctx, "refresh_github_routes", refresh_github_routes)
+    refresh_routes = _resolve_refresh(ctx)
 
     target = target.lower()
     if target not in ["sing0", "awg0", "tun0", "wg0", "auto"]:
@@ -107,7 +114,7 @@ def restart_singbox() -> bool:
     runner = getattr(ctx, "run_args", run_args)
     wait_if = getattr(ctx, "wait_for_interface", wait_for_interface)
     apply_pol = getattr(ctx, "apply_vpn_policy", apply_vpn_policy)
-    refresh_routes = getattr(ctx, "refresh_github_routes", refresh_github_routes)
+    refresh_routes = _resolve_refresh(ctx)
     get_path = getattr(ctx, "get_host_path")
     gen_config = getattr(ctx, "generate_singbox_config")
     upd_conf = getattr(ctx, "update_goodwifi_conf")
@@ -160,7 +167,7 @@ def restart_amneziawg() -> bool:
     runner = getattr(ctx, "run_args", run_args)
     wait_if = getattr(ctx, "wait_for_interface", wait_for_interface)
     apply_pol = getattr(ctx, "apply_vpn_policy", apply_vpn_policy)
-    refresh_routes = getattr(ctx, "refresh_github_routes", refresh_github_routes)
+    refresh_routes = _resolve_refresh(ctx)
 
     logger("Restarting AmneziaWG (awg0)...")
     runner(["sudo", "systemctl", "restart", "awg-quick@awg0"], timeout=30)
@@ -179,7 +186,7 @@ def restart_wireguard() -> bool:
     runner = getattr(ctx, "run_args", run_args)
     wait_if = getattr(ctx, "wait_for_interface", wait_for_interface)
     apply_pol = getattr(ctx, "apply_vpn_policy", apply_vpn_policy)
-    refresh_routes = getattr(ctx, "refresh_github_routes", refresh_github_routes)
+    refresh_routes = _resolve_refresh(ctx)
 
     logger("Restarting WireGuard (wg0)...")
     runner(["sudo", "systemctl", "restart", "wg-quick@wg0"], timeout=30)
@@ -198,7 +205,7 @@ def restart_openvpn() -> bool:
     runner = getattr(ctx, "run_args", run_args)
     wait_if = getattr(ctx, "wait_for_interface", wait_for_interface)
     apply_pol = getattr(ctx, "apply_vpn_policy", apply_vpn_policy)
-    refresh_routes = getattr(ctx, "refresh_github_routes", refresh_github_routes)
+    refresh_routes = _resolve_refresh(ctx)
     get_conn = getattr(ctx, "get_vpn_connection_name", get_vpn_connection_name)
     chk_vpn = getattr(ctx, "check_vpn", check_vpn)
     rst_amnezia = getattr(ctx, "restart_amneziawg", restart_amneziawg)

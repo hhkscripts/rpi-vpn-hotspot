@@ -91,7 +91,7 @@ def main() -> None:
         args.status = True
 
     if args.refresh_routes:
-        getattr(ctx, "refresh_github_routes")()
+        getattr(ctx, "refresh_routes", getattr(ctx, "refresh_github_routes"))()
         print("Routes refreshed successfully.")
         sys.exit(0)
 

@@ -540,6 +540,10 @@ if vpn_has_ipv4; then
   active_vpn="$(get_active_vpn_if)"
   log_info "VPN interface $active_vpn is active and has an IPv4 address"
   sudo /etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy "$active_vpn" up
+  log_info "Applying modular routes (local_routes & vpn_routes)"
+  if [ -x /usr/local/bin/apply-routes.sh ]; then
+    sudo /usr/local/bin/apply-routes.sh || true
+  fi
   log_info "Refreshing GitHub host routes through $active_vpn"
   if ! sudo /usr/local/bin/github-vpn-routes.sh; then
     log_warn "Could not refresh GitHub host routes. You can retry with: sudo github-vpn-routes.sh"
@@ -548,7 +552,7 @@ else
   log_warn "No active VPN interface (sing0, awg0, wg0, tun0) with an IPv4 address found."
   log_warn "If using OpenVPN ('pi'), confirm it creates tun0. If using AmneziaWG, check awg0. If using sing-box, check sing0."
   log_warn "After the VPN is healthy, reapply hotspot routing with: hotspot --restart-vpn"
-  log_warn "Then refresh GitHub host routes with: sudo github-vpn-routes.sh"
+  log_warn "Then refresh routes with: sudo apply-routes.sh"
 fi
 
 log_info "SETUP/APPLY COMPLETE"

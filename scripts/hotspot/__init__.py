@@ -52,7 +52,7 @@ from .detection import (
 )
 from .formatter import print_status
 from .profiles import get_country_profiles
-from .routing import apply_vpn_policy, refresh_github_routes
+from .routing import apply_vpn_policy, refresh_github_routes, refresh_routes
 from .runner import (
     check_docker_container,
     check_service,
@@ -155,6 +155,7 @@ __all__ = [
     "main",
     "print_status",
     "refresh_github_routes",
+    "refresh_routes",
     "restart_amneziawg",
     "restart_openvpn",
     "restart_singbox",

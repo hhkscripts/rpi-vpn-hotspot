@@ -56,7 +56,7 @@ docker compose up -d --build
 | `/start` | Start the bot |
 | `/status` | Show hotspot status |
 | `/restart` | Restart hotspot services and reapply routing |
-| `/restart_vpn` | Restart VPN and refresh GitHub routes |
+| `/restart_vpn` | Restart VPN and refresh modular routes (local & vpn) |
 | `/fix` | Run the manager's automatic fix path |
 | `/clients` | Show connected client count |
 | `/help` | Show command help |
