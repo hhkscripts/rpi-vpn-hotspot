@@ -18,10 +18,19 @@ elif [ -d "$PROJECT_DIR/configs/routes" ]; then
     ROUTES_DIR="$PROJECT_DIR/configs/routes"
 elif [ -n "$REPO_ROOT" ] && [ -d "$REPO_ROOT/configs/routes" ]; then
     ROUTES_DIR="$REPO_ROOT/configs/routes"
+elif [ -d "/home/hhk/Projects/vpn/configs/routes" ]; then
+    ROUTES_DIR="/home/hhk/Projects/vpn/configs/routes"
+elif [ -d "/home/pi/Projects/vpn/configs/routes" ]; then
+    ROUTES_DIR="/home/pi/Projects/vpn/configs/routes"
 elif [ -d "/etc/goodwifi/routes" ]; then
     ROUTES_DIR="/etc/goodwifi/routes"
 else
     ROUTES_DIR="$PROJECT_DIR/configs/routes"
+fi
+
+# Keep /etc/goodwifi/routes in sync with repository routes if writable
+if [ -d "/etc/goodwifi/routes" ] && [ "$ROUTES_DIR" != "/etc/goodwifi/routes" ]; then
+    cp -rf "$ROUTES_DIR/"* /etc/goodwifi/routes/ 2>/dev/null || true
 fi
 
 # Determine AdGuard Home config directory

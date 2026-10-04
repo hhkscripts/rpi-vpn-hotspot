@@ -38,6 +38,10 @@ if [ -d "$REPO_DIR/scripts/hotspot" ]; then
   $SUDO_CMD cp -rf "$REPO_DIR/scripts/hotspot/"* /usr/local/lib/hotspot/ 2>/dev/null || true
   $SUDO_CMD cp -rf "$REPO_DIR/scripts/hotspot/"* /usr/local/bin/hotspot/ 2>/dev/null || true
 fi
+if [ -d "$REPO_DIR/configs/routes" ]; then
+  $SUDO_CMD mkdir -p /etc/goodwifi/routes 2>/dev/null || true
+  $SUDO_CMD cp -rf "$REPO_DIR/configs/routes/"* /etc/goodwifi/routes/ 2>/dev/null || true
+fi
 if [ -f "$REPO_DIR/scripts/apply-routes.sh" ]; then
   $SUDO_CMD cp -f "$REPO_DIR/scripts/apply-routes.sh" /usr/local/bin/apply-routes.sh 2>/dev/null || true
   $SUDO_CMD chmod 0755 /usr/local/bin/apply-routes.sh 2>/dev/null || true
