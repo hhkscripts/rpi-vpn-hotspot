@@ -83,10 +83,25 @@ def get_current_backend_name() -> str:
                         backend = line.split("=", 1)[1].strip().strip('"').strip("'")
         except Exception:
             pass
+
+    # Detect currently active network interface
+    active_iface = None
+    for iface in ["sing0", "awg0", "tun0", "wg0"]:
+        if os.path.exists(f"/host/sys/class/net/{iface}") or os.path.exists(
+            f"/sys/class/net/{iface}"
+        ):
+            active_iface = iface
+            break
+
+    target_backend = backend
+    if target_backend == "auto" and active_iface:
+        target_backend = active_iface
+
     unlimited_c = get_current_unlimited_country()
     vless_label = f"{TG_EMOJI_VLESS} VLESS Reality (sing0)"
     if unlimited_c and unlimited_c not in ["direct", "off", "none"]:
-        flag = FLAG_MAP.get(unlimited_c, "🌐")
+        base_cc = unlimited_c.split("-")[0].lower()
+        flag = FLAG_MAP.get(base_cc, "🌐")
         vless_label += f" [{flag} {unlimited_c.upper()}]"
 
     names = {
@@ -94,9 +109,13 @@ def get_current_backend_name() -> str:
         "awg0": f"{TG_EMOJI_AMNEZIAWG} AmneziaWG (awg0)",
         "tun0": f"{TG_EMOJI_OPENVPN} OpenVPN (tun0)",
         "wg0": f"{TG_EMOJI_WIREGUARD} WireGuard (wg0)",
-        "auto": "Auto",
     }
-    return names.get(backend, backend)
+    resolved = names.get(target_backend)
+    if resolved:
+        return resolved
+    if backend == "auto":
+        return "Auto (Disconnected)"
+    return backend
 
 
 def get_current_ipv6_mode() -> str:

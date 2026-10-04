@@ -35,7 +35,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         f"• <code>switch_vpn &lt;sing0|awg0|tun0|wg0|auto&gt;</code> - "
         f"Switch active VPN backend\n"
         f"• {TG_EMOJI_GLOBE} <code>country &lt;sg|jp|direct&gt;</code> - "
-        f"Switch exit country (VPN Unlimited)\n"
+        f"Switch exit country\n"
         f"• {TG_EMOJI_IPV6} <code>ipv6 &lt;drop|reject|off&gt;</code> - "
         f"Configure IPv6 leak protection\n"
         f"• {TG_EMOJI_ADGUARD} <code>adguard &lt;on|off|restart&gt;</code> - "

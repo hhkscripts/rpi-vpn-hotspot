@@ -34,7 +34,7 @@ def _get_current_display() -> str:
         badge = format_country_badge(current_c, fallback_flag=flag)
         return f"{badge} {cname} ({current_c.upper()})"
     elif current_c in ["direct", "off", "none"]:
-        return "🌐 Direct VPS (No Unlimited Detour)"
+        return "🌐 Direct VPS (No Detour)"
     return current_c.upper()
 
 
@@ -55,7 +55,7 @@ async def country_menu_command(
         f"{hdr}\n\n"
         f"Active Exit: <b>{current_display}</b>\n\n"
         f"Traffic detours through your VLESS Reality VPS first (bypassing DPI), "
-        f"then exits through VPN Unlimited in the selected country.\n\n"
+        f"then exits through VPN profile in the selected country.\n\n"
         f"Choose a region below:"
     )
     if update.message:
@@ -96,7 +96,7 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             f"{hdr}\n\n"
             f"Active Exit: <b>{current_display}</b>\n\n"
             f"Traffic detours through your VLESS Reality VPS first (bypassing DPI), "
-            f"then exits through VPN Unlimited in the selected country.\n\n"
+            f"then exits through VPN profile in the selected country.\n\n"
             f"Choose a region below:"
         )
         try:
@@ -142,7 +142,7 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         badge = format_country_badge(country, fallback_flag=flag)
         target_name = f"{badge} {p.get('country_name', country.upper())}"
     elif country == "direct":
-        target_name = "Direct VPS (No Unlimited Detour)"
+        target_name = "Direct VPS (No Detour)"
     else:
         target_name = country.upper()
 

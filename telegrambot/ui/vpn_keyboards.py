@@ -40,7 +40,7 @@ def make_switch_vpn_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(
-                "🌐 Exit Country (VPN Unlimited)",
+                "Exit Country",
                 callback_data="menu_country",
                 icon_custom_emoji_id=EMOJI_GLOBE,
             ),
