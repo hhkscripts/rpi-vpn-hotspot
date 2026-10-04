@@ -28,15 +28,28 @@ dns:
     - github.com,githubusercontent.com,actions.githubusercontent.com,deb.debian.org,security.debian.org,archive.debian.org/vpn_domains
     - binance.com,binance.me,binance.info,binance.org,bnbstatic.com,bntrace.com,bybit.com,bybit.net,bybit.org,bybitglobal.com,bybit-global.com,bybit.biz,bybit.cloud,bybit-aws.com,byapps.net,bycsi.com,bitverse.zone,byd3c3.com,bybdc6.com,byabcde.com,bytick.com,by-financial.com,kbzpay.com,kbzbank.com,kbzmoney.com,kbzpayapi.com,wavemoney.io,wavemoney.com.mm,wavepay.com.mm,wavepay.io,cbbank.com.mm,cbpay.com.mm,cbbank.net,ayabank.com,ayapay.com,ayapay.com.mm,ayainnovation.com,yomabank.com,yomanext.com,yoma.com.mm,uab.com.mm,uabpay.com.mm,uabpaybusiness.com,uabpayupi.com/local_routes
 
-# Optional user-defined filtering rules.
-# Note: Google Ads and Analytics unblocking rules are commented out below by default
-# to ensure network-wide ad blocking works as expected.
-# Uncomment the rules below only if you explicitly need to unblock developer/analytics dashboards:
-user_rules: []
-# user_rules:
-#   - '@@||analytics.google.com^'
-#   - '@@||google-analytics.com^'
-#   - '@@||ogads-pa.clients6.google.com^'
-#   - '@@||googleads.g.doubleclick.net^'
-#   - '@@||pagead2.googlesyndication.com^'
-#   - '@@||adservice.google.com^'
+# User-defined filtering rules: DoH and Apple iCloud Private Relay blocking
+# Forces devices to fall back to GoodWifi local DNS (port 53) so local_routes & vpn_domains are populated.
+user_rules:
+  - '||mask.icloud.com^'
+  - '||mask-h2.icloud.com^'
+  - '||mask-api.icloud.com^'
+  - '||cloudflare-dns.com^'
+  - '||1dot1dot1dot1.cloudflare-dns.com^'
+  - '||one.one.one.one^'
+  - '||dns.cloudflare.com^'
+  - '||dns.google^'
+  - '||dns.google.com^'
+  - '||dns.quad9.net^'
+  - '||dns9.quad9.net^'
+  - '||dns10.quad9.net^'
+  - '||dns.adguard-dns.com^'
+  - '||dns.adguard.com^'
+  - '||dns.nextdns.io^'
+  - '||doh.cleanbrowsing.org^'
+  - '||doh.opendns.com^'
+  - '||doh.mullvad.net^'
+  - '||adblock.doh.mullvad.net^'
+  - '||freedns.controld.com^'
+  - '||dns.controld.com^'
+

@@ -201,6 +201,39 @@ if [ -n "$ADGUARD_CONF_DIR" ] && [ -d "$ADGUARD_CONF_DIR" ]; then
             adguard_updated=1
             log "Updated ipset_file in $adguard_yaml"
         fi
+
+        # Ensure DoH and Apple iCloud Private Relay blocking rules in user_rules
+        doh_file="$ROUTES_DIR/doh-blocklist.txt"
+        if [ -f "$doh_file" ] && ! grep -q "mask\.icloud\.com" "$adguard_yaml" 2>/dev/null; then
+            if grep -q "^user_rules:[[:space:]]*\[\]" "$adguard_yaml" 2>/dev/null; then
+                tmp_yaml="$tmp_dir/AdGuardHome.yaml.tmp"
+                awk -v doh_path="$doh_file" '
+                    BEGIN {
+                        while ((getline line < doh_path) > 0) {
+                            sub(/^[ \t]+/, "", line)
+                            sub(/[ \t]+$/, "", line)
+                            if (line !~ /^#/ && length(line) > 0) {
+                                doh_rules[rule_count++] = "  - '\''" line "'\''"
+                            }
+                        }
+                        close(doh_path)
+                    }
+                    /^user_rules:[[:space:]]*\[\]/ {
+                        print "user_rules:"
+                        for (i = 0; i < rule_count; i++) {
+                            print doh_rules[i]
+                        }
+                        next
+                    }
+                    { print }
+                ' "$adguard_yaml" > "$tmp_yaml"
+                if [ -s "$tmp_yaml" ]; then
+                    cp "$tmp_yaml" "$adguard_yaml"
+                    adguard_updated=1
+                    log "Injected DoH & Private Relay blocklist into $adguard_yaml"
+                fi
+            fi
+        fi
     fi
 fi
 

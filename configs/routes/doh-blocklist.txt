@@ -1,0 +1,44 @@
+# DNS-over-HTTPS (DoH) and Apple iCloud Private Relay Blocking Rules
+# Prevents client bypass of GoodWifi local DNS routing and policy ipsets.
+# When blocked, iOS, Android, and desktop browsers fall back to GoodWifi AdGuard DNS (port 53).
+
+# Apple iCloud Private Relay (Triggers Apple's automatic fallback to local Wi-Fi DNS per RFC)
+||mask.icloud.com^
+||mask-h2.icloud.com^
+||mask-api.icloud.com^
+
+# Cloudflare 1.1.1.1 DoH
+||cloudflare-dns.com^
+||1dot1dot1dot1.cloudflare-dns.com^
+||one.one.one.one^
+||dns.cloudflare.com^
+
+# Google Public DNS DoH
+||dns.google^
+||dns.google.com^
+
+# Quad9 DoH
+||dns.quad9.net^
+||dns9.quad9.net^
+||dns10.quad9.net^
+
+# AdGuard DNS DoH
+||dns.adguard-dns.com^
+||dns.adguard.com^
+
+# NextDNS DoH
+||dns.nextdns.io^
+
+# CleanBrowsing DoH
+||doh.cleanbrowsing.org^
+
+# OpenDNS DoH
+||doh.opendns.com^
+
+# Mullvad DoH
+||doh.mullvad.net^
+||adblock.doh.mullvad.net^
+
+# Control D DoH
+||freedns.controld.com^
+||dns.controld.com^
