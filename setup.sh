@@ -28,6 +28,7 @@ required_files=(
   "$CONFIG_DIR/20-hotspot-manager"
   "$CONFIG_DIR/90-hotspot-vpn-policy"
   "$SCRIPT_DIR/hotspot-manager.py"
+  "$SCRIPT_DIR/hotspot/__init__.py"
   "$SCRIPT_DIR/github-vpn-routes.sh"
   "$SCRIPT_DIR/apply-routes.sh"
   "$SCRIPT_DIR/openvpn-replay-wrapper"
@@ -78,7 +79,7 @@ ensure_managed_block() {
 }
 
 get_active_vpn_if() {
-  for cand in awg0 wg0 tun0; do
+  for cand in sing0 awg0 wg0 tun0; do
     if ip -4 addr show "$cand" 2>/dev/null | grep -q "inet "; then
       echo "$cand"
       return 0
@@ -446,6 +447,11 @@ echo 'DAEMON_CONF="/etc/hostapd/hostapd.conf"' | sudo tee /etc/default/hostapd >
 
 log_info "Installing manager script from scripts/"
 copy_file "$SCRIPT_DIR/hotspot-manager.py" /usr/local/bin/hotspot-manager.py 0755
+sudo mkdir -p /usr/local/lib/hotspot /usr/local/bin/hotspot
+if [ -d "$SCRIPT_DIR/hotspot" ]; then
+  sudo cp -r "$SCRIPT_DIR/hotspot/"* /usr/local/lib/hotspot/
+  sudo cp -r "$SCRIPT_DIR/hotspot/"* /usr/local/bin/hotspot/
+fi
 copy_file "$SCRIPT_DIR/github-vpn-routes.sh" /usr/local/bin/github-vpn-routes.sh 0755
 copy_file "$SCRIPT_DIR/apply-routes.sh" /usr/local/bin/apply-routes.sh 0755
 log_info "Installing modular route definitions to /etc/goodwifi/routes"
@@ -519,6 +525,9 @@ fi
 if [ -f /etc/wireguard/wg0.conf ]; then
   sudo systemctl enable wg-quick@wg0 2>/dev/null || true
 fi
+if [ -f /etc/sing-box/config.json ]; then
+  sudo systemctl enable sing-box 2>/dev/null || true
+fi
 sudo systemctl restart hostapd dnsmasq 2>/dev/null || true
 restart_adguard_if_configured
 restart_telegrambot_if_configured
@@ -536,8 +545,8 @@ if vpn_has_ipv4; then
     log_warn "Could not refresh GitHub host routes. You can retry with: sudo github-vpn-routes.sh"
   fi
 else
-  log_warn "No active VPN interface (awg0, wg0, tun0) with an IPv4 address found."
-  log_warn "If using OpenVPN ('pi'), confirm it creates tun0. If using AmneziaWG, check awg0."
+  log_warn "No active VPN interface (sing0, awg0, wg0, tun0) with an IPv4 address found."
+  log_warn "If using OpenVPN ('pi'), confirm it creates tun0. If using AmneziaWG, check awg0. If using sing-box, check sing0."
   log_warn "After the VPN is healthy, reapply hotspot routing with: hotspot --restart-vpn"
   log_warn "Then refresh GitHub host routes with: sudo github-vpn-routes.sh"
 fi

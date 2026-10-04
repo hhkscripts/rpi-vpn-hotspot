@@ -71,11 +71,11 @@ sudo systemctl disable hostapd dnsmasq 2>/dev/null || true
 sudo systemctl stop wpa_supplicant 2>/dev/null || true
 
 if [ -x "$POLICY_SCRIPT" ]; then
-  for iface in awg0 wg0 tun0; do
+  for iface in sing0 awg0 wg0 tun0; do
     sudo "$POLICY_SCRIPT" "$iface" cleanup 2>/dev/null || true
   done
 elif [ -x /etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy ]; then
-  for iface in awg0 wg0 tun0; do
+  for iface in sing0 awg0 wg0 tun0; do
     sudo /etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy "$iface" cleanup 2>/dev/null || true
   done
 fi
@@ -95,6 +95,7 @@ restore_or_remove /etc/default/hostapd "$BACKUP_DIR"
 restore_or_remove /etc/NetworkManager/dispatcher.d/20-hotspot-manager "$BACKUP_DIR"
 restore_or_remove /etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy "$BACKUP_DIR"
 restore_or_remove /usr/local/bin/hotspot-manager.py "$BACKUP_DIR"
+sudo rm -rf /usr/local/lib/hotspot /usr/local/bin/hotspot 2>/dev/null || true
 restore_or_remove /usr/local/bin/github-vpn-routes.sh "$BACKUP_DIR"
 restore_or_remove /usr/local/bin/apply-routes.sh "$BACKUP_DIR"
 sudo rm -rf /etc/goodwifi/routes 2>/dev/null || true
