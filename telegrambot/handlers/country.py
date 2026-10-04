@@ -7,6 +7,10 @@ from telegram.ext import ContextTypes
 from telegrambot.constants.emojis import TG_EMOJI_GLOBE
 from telegrambot.constants.profiles import get_bot_country_profiles
 from telegrambot.core.config import check_authorization, logger
+from telegrambot.core.dynamic_emojis import (
+    format_country_badge,
+    format_region_badge,
+)
 from telegrambot.core.runner import (
     get_current_unlimited_country,
     get_status_text,
@@ -27,7 +31,8 @@ def _get_current_display() -> str:
         p = profiles[current_c]
         cname = p.get("country_name", current_c.upper())
         flag = p.get("flag", "🌐")
-        return f"{flag} {cname} ({current_c.upper()})"
+        badge = format_country_badge(current_c, fallback_flag=flag)
+        return f"{badge} {cname} ({current_c.upper()})"
     elif current_c in ["direct", "off", "none"]:
         return "🌐 Direct VPS (No Unlimited Detour)"
     return current_c.upper()
@@ -99,13 +104,14 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if data.startswith("region_"):
         reg = data.replace("region_", "")
         region_titles = {
-            "asia": "🌏 Asia & Mideast",
-            "europe": "🏰 Europe",
-            "americas": "🌎 Americas",
-            "oceania-africa": "🌍 Oceania & Africa",
-            "all": "📋 All Countries",
+            "asia": "Asia & Mideast",
+            "europe": "Europe",
+            "americas": "Americas",
+            "oceania-africa": "Oceania & Africa",
+            "all": "All Countries",
         }
-        title = region_titles.get(reg, reg.capitalize())
+        raw_title = region_titles.get(reg, reg.capitalize())
+        title = format_region_badge(reg, raw_title)
         reply_markup = make_country_keyboard(selected_region=reg)
         text = (
             f"<b>{title}:</b>\n\n"
@@ -125,7 +131,9 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     profiles = get_bot_country_profiles()
     if country in profiles:
         p = profiles[country]
-        target_name = f"{p.get('flag', '🌐')} {p.get('country_name', country.upper())}"
+        flag = p.get("flag", "🌐")
+        badge = format_country_badge(country, fallback_flag=flag)
+        target_name = f"{badge} {p.get('country_name', country.upper())}"
     elif country == "direct":
         target_name = "Direct VPS (No Unlimited Detour)"
     else:

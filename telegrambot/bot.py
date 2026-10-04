@@ -29,6 +29,10 @@ from telegram.ext import (
 )
 
 from telegrambot.core.config import BOT_TOKEN, logger
+from telegrambot.core.dynamic_emojis import (
+    fetch_sticker_set_emojis,
+    load_cached_emojis,
+)
 from telegrambot.core.health import set_bot_ready, start_bot_health_server
 from telegrambot.handlers.adguard import (
     adguard_callback,
@@ -59,9 +63,18 @@ from telegrambot.handlers.vpn import (
 )
 
 
+async def _post_init(app: Application) -> None:
+    """Async startup hook to load dynamic emojis before handling updates."""
+    try:
+        await fetch_sticker_set_emojis(app.bot)
+    except Exception as e:
+        logger.warning(f"Could not load dynamic emojis on startup: {e}")
+
+
 def create_application() -> Application:
     """Configure and build the telegram Application with all handlers."""
-    app = Application.builder().token(BOT_TOKEN).build()
+    load_cached_emojis()
+    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
 
     # Command handlers
     app.add_handler(CommandHandler("start", start))
