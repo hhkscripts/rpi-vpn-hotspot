@@ -1,0 +1,97 @@
+"""Tests for Singbox configuration generation and country profile scanning."""
+
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+from tests.hotspot import hotspot_manager
+
+
+class CountryProfileTests(unittest.TestCase):
+    def test_get_country_profiles(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            Path(tmpdir, "user_sg_vpn.ovpn").touch()
+            Path(tmpdir, "user_jp_vpn.ovpn").touch()
+            profs = hotspot_manager.get_country_profiles(tmpdir)
+            self.assertIn("sg", profs)
+            self.assertIn("jp", profs)
+            self.assertEqual(profs["sg"]["flag"], "🇸🇬")
+            self.assertEqual(profs["sg"]["country_name"], "Singapore")
+            self.assertEqual(profs["jp"]["flag"], "🇯🇵")
+            self.assertEqual(profs["jp"]["country_name"], "Japan")
+
+    def test_get_active_vpn_interface_sing0_with_country(self):
+        with (
+            patch.object(
+                hotspot_manager,
+                "get_configured_unlimited_country",
+                return_value="sg",
+            ),
+            patch.object(
+                hotspot_manager,
+                "run_args",
+                return_value=(True, "default dev sing0 proto static scope link\n", ""),
+            ),
+        ):
+            iface, name = hotspot_manager.get_active_vpn_interface()
+            self.assertEqual(iface, "sing0")
+            self.assertEqual(name, "VLESS [🇸🇬 SG]")
+
+    def test_generate_singbox_config_direct(self):
+        cfg = hotspot_manager.generate_singbox_config(None)
+        self.assertNotIn("endpoints", cfg)
+        self.assertEqual(cfg["inbounds"][0]["type"], "tun")
+        self.assertEqual(cfg["outbounds"][0]["type"], "socks")
+        self.assertEqual(cfg["route"]["rules"][0]["action"], "sniff")
+        self.assertEqual(cfg["route"]["rules"][1]["outbound"], "xray-socks")
+
+    def test_generate_singbox_config_detour(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".conf", delete=False) as tf:
+            tf.write(
+                "[Interface]\n"
+                "PrivateKey = fake_priv_key\n"
+                "Address = 10.102.147.215/32\n"
+                "[Peer]\n"
+                "PublicKey = fake_pub_key\n"
+                "Endpoint = 143.198.208.211:255\n"
+                "AllowedIPs = 0.0.0.0/0\n"
+            )
+            tf_path = tf.name
+
+        try:
+            cfg = hotspot_manager.generate_singbox_config(tf_path)
+            self.assertIn("endpoints", cfg)
+            ep = cfg["endpoints"][0]
+            self.assertEqual(ep["type"], "wireguard")
+            self.assertEqual(ep["detour"], "xray-socks")
+            self.assertEqual(ep["peers"][0]["address"], "143.198.208.211")
+            self.assertEqual(ep["peers"][0]["port"], 255)
+            self.assertEqual(cfg["route"]["rules"][0]["action"], "sniff")
+            self.assertEqual(cfg["route"]["rules"][1]["outbound"], "wg-out")
+        finally:
+            if os.path.exists(tf_path):
+                os.unlink(tf_path)
+
+    def test_switch_unlimited_country(self):
+        with (
+            patch.object(
+                hotspot_manager, "update_goodwifi_conf", return_value=True
+            ) as upd,
+            patch.object(
+                hotspot_manager, "get_configured_backend", return_value="sing0"
+            ),
+            patch.object(hotspot_manager, "run_args", return_value=(True, "", "")),
+            patch.object(hotspot_manager, "wait_for_interface", return_value=True),
+            patch.object(hotspot_manager, "apply_vpn_policy", return_value=True),
+            patch.object(
+                hotspot_manager, "get_host_path", return_value="/tmp/singbox_test.json"
+            ),
+        ):
+            self.assertTrue(hotspot_manager.switch_unlimited_country("direct"))
+            upd.assert_called_once_with("UNLIMITED_COUNTRY", "direct")
+
+
+if __name__ == "__main__":
+    unittest.main()
