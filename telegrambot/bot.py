@@ -112,6 +112,9 @@ FLAG_MAP = {
     "lt": "🇱🇹",
     "lux": "🇱🇺",
     "lu": "🇱🇺",
+    "ae": "🇦🇪",
+    "ng": "🇳🇬",
+    "ua": "🇺🇦",
 }
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
@@ -451,6 +454,9 @@ def get_bot_country_profiles() -> dict[str, dict[str, str]]:
             "lt": "Lithuania",
             "lux": "Luxembourg",
             "lu": "Luxembourg",
+            "ae": "United Arab Emirates",
+            "ng": "Nigeria",
+            "ua": "Ukraine",
         }
         for fname in sorted(os.listdir(profiles_dir)):
             if not fname.endswith(".ovpn"):
@@ -1130,9 +1136,7 @@ def make_country_keyboard() -> InlineKeyboardMarkup:
     )
     keyboard.append(
         [
-            InlineKeyboardButton(
-                "🔙 Back", callback_data="menu_switch"
-            ),
+            InlineKeyboardButton("🔙 Back", callback_data="menu_switch"),
             InlineKeyboardButton(
                 "Refresh",
                 callback_data="refresh_status",

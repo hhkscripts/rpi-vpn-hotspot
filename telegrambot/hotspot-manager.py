@@ -282,6 +282,9 @@ FLAG_MAP = {
     "lt": "🇱🇹",
     "lux": "🇱🇺",
     "lu": "🇱🇺",
+    "ae": "🇦🇪",
+    "ng": "🇳🇬",
+    "ua": "🇺🇦",
 }
 
 
@@ -775,6 +778,9 @@ def get_country_profiles(
         "lt": "Lithuania",
         "lux": "Luxembourg",
         "lu": "Luxembourg",
+        "ae": "United Arab Emirates",
+        "ng": "Nigeria",
+        "ua": "Ukraine",
     }
     for fname in sorted(os.listdir(profiles_dir)):
         if not fname.endswith(".ovpn"):
