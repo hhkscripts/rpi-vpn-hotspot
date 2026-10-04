@@ -3,7 +3,7 @@
 from typing import Optional
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from telegrambot.constants.emojis import EMOJI_GLOBE, EMOJI_REFRESH
+from telegrambot.constants.emojis import EMOJI_GLOBE
 from telegrambot.constants.flags import FLAG_MAP
 from telegrambot.constants.profiles import get_bot_country_profiles
 from telegrambot.core.dynamic_emojis import (
@@ -95,11 +95,6 @@ def make_region_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("🔙 Back to Status", callback_data="refresh_status"),
-            InlineKeyboardButton(
-                "Refresh",
-                callback_data="refresh_status",
-                icon_custom_emoji_id=EMOJI_REFRESH,
-            ),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -203,11 +198,7 @@ def make_country_keyboard(
     keyboard.append(
         [
             InlineKeyboardButton("📋 All Regions", callback_data="menu_country"),
-            InlineKeyboardButton(
-                "Refresh",
-                callback_data="refresh_status",
-                icon_custom_emoji_id=EMOJI_REFRESH,
-            ),
+            InlineKeyboardButton("🔙 Back to Status", callback_data="refresh_status"),
         ]
     )
     return InlineKeyboardMarkup(keyboard)

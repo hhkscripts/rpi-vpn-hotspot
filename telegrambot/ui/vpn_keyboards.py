@@ -112,15 +112,10 @@ def make_switch_vpn_keyboard(
         ]
     )
 
-    # 5. Navigation: Back to Status & Refresh
+    # 5. Navigation: Back to Status
     keyboard.append(
         [
             InlineKeyboardButton("🔙 Back to Status", callback_data="refresh_status"),
-            InlineKeyboardButton(
-                "Refresh",
-                callback_data="refresh_status",
-                icon_custom_emoji_id=EMOJI_REFRESH,
-            ),
         ]
     )
 
