@@ -796,7 +796,7 @@ def get_country_profiles() -> dict[str, dict[str, str]]:
 
 
 def generate_singbox_config(profile_path: Optional[str] = None) -> dict:
-    """Generate Sing-box config with optional WireGuard or OpenVPN endpoint detour via Xray."""
+    """Generate Sing-box config with WireGuard or OpenVPN endpoint detour via Xray."""
     cfg = {
         "log": {"level": "warn"},
         "inbounds": [
