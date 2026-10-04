@@ -11,6 +11,7 @@ from .constants import CONFIG, GOODWIFI_CONF
 from .context import Context
 from .runner import (
     check_docker_container,
+    check_service,
     get_host_path,
     log,
     run_args,
@@ -18,11 +19,35 @@ from .runner import (
 )
 
 
+def _find_adguard_target(ctx) -> tuple[str, str, bool]:
+    cfg = getattr(ctx, "CONFIG", CONFIG)
+    chk_c = getattr(ctx, "check_docker_container", check_docker_container)
+    chk_s = getattr(ctx, "check_service", check_service)
+    configured_name = cfg.get("adguard_container", "adguardhome")
+
+    st = chk_c(configured_name)
+    if st is True:
+        return "docker", configured_name, True
+    if st is False:
+        return "docker", configured_name, False
+
+    # Default container name not found; check compose and service alternatives
+    for alt in ["vpn-adguardhome-1", "vpn_adguardhome_1", "adguard"]:
+        st_alt = chk_c(alt)
+        if st_alt is True:
+            return "docker", alt, True
+        if st_alt is False:
+            return "docker", alt, False
+
+    if chk_s("AdGuardHome"):
+        return "systemd", "AdGuardHome", True
+
+    return "docker", configured_name, False
+
+
 def get_adguard_enabled() -> bool:
     ctx = Context.get()
     get_path = getattr(ctx, "get_host_path", get_host_path)
-    chk_container = getattr(ctx, "check_docker_container", check_docker_container)
-    cfg = getattr(ctx, "CONFIG", CONFIG)
 
     conf_path = get_path(GOODWIFI_CONF)
     if os.path.exists(conf_path):
@@ -40,10 +65,8 @@ def get_adguard_enabled() -> bool:
                             return True
         except Exception:
             pass
-    st = chk_container(cfg.get("adguard_container", "adguardhome"))
-    if st is False:
-        return False
-    return True
+    _, _, running = _find_adguard_target(ctx)
+    return running
 
 
 def configure_dnsmasq_fallback(enable_fallback: bool) -> bool:
@@ -121,46 +144,51 @@ def set_adguard_state(enable: bool) -> bool:
     runner = getattr(ctx, "run_args", run_args)
     upd_conf = getattr(ctx, "update_goodwifi_conf", update_goodwifi_conf)
     cfg_dnsmasq = getattr(ctx, "configure_dnsmasq_fallback", configure_dnsmasq_fallback)
-    chk_container = getattr(ctx, "check_docker_container", check_docker_container)
-    cfg = getattr(ctx, "CONFIG", CONFIG)
 
-    container_name = cfg.get("adguard_container", "adguardhome")
+    tgt_type, tgt_name, _ = _find_adguard_target(ctx)
     if enable:
         logger("Enabling AdGuard Home DNS service...")
         upd_conf("ADGUARD_ENABLED", "true")
         cfg_dnsmasq(enable_fallback=False)
         runner(["sudo", "systemctl", "restart", "dnsmasq"], timeout=30)
-        ok, _, _ = runner(["docker", "start", container_name], timeout=30)
-        if not ok:
-            project_dir = os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            )
-            adguard_dir = os.path.join(project_dir, "adguard")
-            compose_file = os.path.join(adguard_dir, "docker-compose.yml")
-            if os.path.exists(compose_file):
-                runner(
-                    [
-                        "docker",
-                        "compose",
-                        "-f",
-                        compose_file,
-                        "up",
-                        "-d",
-                    ],
-                    timeout=60,
+        if tgt_type == "docker":
+            ok, _, _ = runner(["docker", "start", tgt_name], timeout=30)
+            if not ok:
+                project_dir = os.path.dirname(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 )
+                compose_file = os.path.join(
+                    project_dir, "adguard", "docker-compose.yml"
+                )
+                if os.path.exists(compose_file):
+                    runner(
+                        [
+                            "docker",
+                            "compose",
+                            "-f",
+                            compose_file,
+                            "up",
+                            "-d",
+                        ],
+                        timeout=60,
+                    )
+        else:
+            runner(["sudo", "systemctl", "start", tgt_name], timeout=30)
         time.sleep(2)
-        running = chk_container(container_name)
+        _, _, running = _find_adguard_target(ctx)
         if running:
             logger("AdGuard Home is now running and handling DNS.")
             return True
         else:
-            logger("Could not start AdGuard Home container.", "WARN")
+            logger("Could not start AdGuard Home service.", "WARN")
             return False
     else:
         logger("Disabling AdGuard Home DNS service (switching to fallback DNS)...")
         upd_conf("ADGUARD_ENABLED", "false")
-        runner(["docker", "stop", container_name], timeout=30)
+        if tgt_type == "docker":
+            runner(["docker", "stop", tgt_name], timeout=30)
+        else:
+            runner(["sudo", "systemctl", "stop", tgt_name], timeout=30)
         cfg_dnsmasq(enable_fallback=True)
         runner(["sudo", "systemctl", "restart", "dnsmasq"], timeout=30)
         time.sleep(1)
@@ -196,37 +224,51 @@ def ensure_adguard_resilience() -> tuple[bool, str]:
     ctx = Context.get()
     logger = getattr(ctx, "log", log)
     runner = getattr(ctx, "run_args", run_args)
-    chk_container = getattr(ctx, "check_docker_container", check_docker_container)
     cfg_dnsmasq = getattr(ctx, "configure_dnsmasq_fallback", configure_dnsmasq_fallback)
     get_enabled = getattr(ctx, "get_adguard_enabled", get_adguard_enabled)
-    cfg = getattr(ctx, "CONFIG", CONFIG)
 
     is_enabled = get_enabled()
-    container_name = cfg.get("adguard_container", "adguardhome")
-
     if not is_enabled:
         cfg_dnsmasq(enable_fallback=True)
         return True, "fallback_active"
 
-    running = chk_container(container_name)
+    tgt_type, tgt_name, running = _find_adguard_target(ctx)
     if running:
         cfg_dnsmasq(enable_fallback=False)
         return True, "adguard_healthy"
 
     logger(
-        f"AdGuard Home ({container_name}) is stopped. Attempting recovery...",
+        f"AdGuard Home ({tgt_name}) is stopped. Attempting recovery...",
         "WARN",
     )
     cfg_dnsmasq(enable_fallback=False)
     runner(["sudo", "systemctl", "restart", "dnsmasq"], timeout=15)
-    runner(["docker", "start", container_name], timeout=20)
+    if tgt_type == "docker":
+        runner(["docker", "start", tgt_name], timeout=20)
+    else:
+        runner(["sudo", "systemctl", "start", tgt_name], timeout=20)
     time.sleep(1)
-    if chk_container(container_name):
-        logger(f"AdGuard Home ({container_name}) recovered and active.", "SUCCESS")
+
+    _, _, running = _find_adguard_target(ctx)
+    if running:
+        logger(f"AdGuard Home ({tgt_name}) recovered and active.", "SUCCESS")
         return True, "adguard_recovered"
 
+    if tgt_type == "docker":
+        proj_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        compose_file = os.path.join(proj_dir, "adguard", "docker-compose.yml")
+        if os.path.exists(compose_file):
+            runner(["docker", "compose", "-f", compose_file, "up", "-d"], timeout=30)
+            time.sleep(2)
+            _, _, running = _find_adguard_target(ctx)
+            if running:
+                logger("AdGuard Home recovered via docker compose.", "SUCCESS")
+                return True, "adguard_recovered"
+
     logger(
-        f"AdGuard Home ({container_name}) could not be started! "
+        f"AdGuard Home ({tgt_name}) could not be started! "
         "Activating emergency DNS fallback via dnsmasq...",
         "WARN",
     )

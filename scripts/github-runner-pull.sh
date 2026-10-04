@@ -20,3 +20,31 @@ git -C "$REPO_DIR" clean -fd
 
 echo "Pulled $REMOTE/$BRANCH into $REPO_DIR"
 git -C "$REPO_DIR" rev-parse --short HEAD
+
+# Sync scripts and routing configs to host system
+SUDO_CMD=""
+if [ "$(id -u)" -ne 0 ]; then
+  if command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    SUDO_CMD="sudo"
+  fi
+fi
+
+if [ -f "$REPO_DIR/scripts/hotspot-manager.py" ]; then
+  $SUDO_CMD cp -f "$REPO_DIR/scripts/hotspot-manager.py" /usr/local/bin/hotspot-manager.py 2>/dev/null || true
+  $SUDO_CMD chmod 0755 /usr/local/bin/hotspot-manager.py 2>/dev/null || true
+fi
+if [ -d "$REPO_DIR/scripts/hotspot" ]; then
+  $SUDO_CMD mkdir -p /usr/local/lib/hotspot /usr/local/bin/hotspot 2>/dev/null || true
+  $SUDO_CMD cp -rf "$REPO_DIR/scripts/hotspot/"* /usr/local/lib/hotspot/ 2>/dev/null || true
+  $SUDO_CMD cp -rf "$REPO_DIR/scripts/hotspot/"* /usr/local/bin/hotspot/ 2>/dev/null || true
+fi
+if [ -f "$REPO_DIR/scripts/apply-routes.sh" ]; then
+  $SUDO_CMD cp -f "$REPO_DIR/scripts/apply-routes.sh" /usr/local/bin/apply-routes.sh 2>/dev/null || true
+  $SUDO_CMD chmod 0755 /usr/local/bin/apply-routes.sh 2>/dev/null || true
+  $SUDO_CMD /usr/local/bin/apply-routes.sh 2>/dev/null || true
+fi
+if [ -f "$REPO_DIR/configs/90-hotspot-vpn-policy" ]; then
+  $SUDO_CMD cp -f "$REPO_DIR/configs/90-hotspot-vpn-policy" /etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy 2>/dev/null || true
+  $SUDO_CMD chmod 0755 /etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy 2>/dev/null || true
+  $SUDO_CMD /etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy apply 2>/dev/null || true
+fi

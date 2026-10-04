@@ -214,37 +214,53 @@ if [ -n "$ADGUARD_CONF_DIR" ] && [ -d "$ADGUARD_CONF_DIR" ]; then
             log "Updated ipset_file in $adguard_yaml"
         fi
 
+        # Remove any legacy Google Ads / tracking whitelist rules that bypass ad-blocking
+        if grep -q "@@||.*\(googleads\|pagead2\|adservice\|ogads-pa\|doubleclick\)" "$adguard_yaml" 2>/dev/null; then
+            sed -i '/@@||.*\(googleads\|pagead2\|adservice\|ogads-pa\|doubleclick\)/d' "$adguard_yaml"
+            adguard_updated=1
+            log "Removed Google Ads whitelist rules from $adguard_yaml"
+        fi
+
+        # Ensure protection_enabled and filtering_enabled are active
+        if grep -q "protection_enabled: false" "$adguard_yaml" 2>/dev/null; then
+            sed -i 's/protection_enabled: false/protection_enabled: true/' "$adguard_yaml"
+            adguard_updated=1
+            log "Enabled protection_enabled in $adguard_yaml"
+        fi
+        if grep -q "filtering_enabled: false" "$adguard_yaml" 2>/dev/null; then
+            sed -i 's/filtering_enabled: false/filtering_enabled: true/' "$adguard_yaml"
+            adguard_updated=1
+            log "Enabled filtering_enabled in $adguard_yaml"
+        fi
+
+        # Ensure default AdGuard DNS filter is present in filters
+        if ! grep -q "filter_1\.txt" "$adguard_yaml" 2>/dev/null; then
+            if grep -q "^filters:[[:space:]]*\[\]" "$adguard_yaml" 2>/dev/null; then
+                sed -i 's#^filters:[[:space:]]*\[\]#filters:\n  - enabled: true\n    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt\n    name: AdGuard DNS filter\n    id: 1#' "$adguard_yaml"
+                adguard_updated=1
+                log "Injected default AdGuard DNS filter into $adguard_yaml"
+            fi
+        fi
+
         # Ensure DoH and Apple iCloud Private Relay blocking rules in user_rules
         doh_file="$ROUTES_DIR/doh-blocklist.txt"
         if [ -f "$doh_file" ] && ! grep -q "mask\.icloud\.com" "$adguard_yaml" 2>/dev/null; then
             if grep -q "^user_rules:[[:space:]]*\[\]" "$adguard_yaml" 2>/dev/null; then
-                tmp_yaml="$tmp_dir/AdGuardHome.yaml.tmp"
-                awk -v doh_path="$doh_file" '
-                    BEGIN {
-                        while ((getline line < doh_path) > 0) {
-                            sub(/^[ \t]+/, "", line)
-                            sub(/[ \t]+$/, "", line)
-                            if (line !~ /^#/ && length(line) > 0) {
-                                doh_rules[rule_count++] = "  - '\''" line "'\''"
-                            }
-                        }
-                        close(doh_path)
-                    }
-                    /^user_rules:[[:space:]]*\[\]/ {
-                        print "user_rules:"
-                        for (i = 0; i < rule_count; i++) {
-                            print doh_rules[i]
-                        }
-                        next
-                    }
-                    { print }
-                ' "$adguard_yaml" > "$tmp_yaml"
-                if [ -s "$tmp_yaml" ]; then
-                    cp "$tmp_yaml" "$adguard_yaml"
-                    adguard_updated=1
-                    log "Injected DoH & Private Relay blocklist into $adguard_yaml"
-                fi
+                sed -i 's/^user_rules:[[:space:]]*\[\]/user_rules:/' "$adguard_yaml"
+            elif ! grep -q "^user_rules:" "$adguard_yaml" 2>/dev/null; then
+                printf '\nuser_rules:\n' >> "$adguard_yaml"
             fi
+            while IFS= read -r line || [ -n "$line" ]; do
+                line="$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+                case "$line" in
+                    \#*|"") continue ;;
+                esac
+                if ! grep -Fq "'$line'" "$adguard_yaml" 2>/dev/null; then
+                    sed -i "/^user_rules:/a\  - '$line'" "$adguard_yaml"
+                    adguard_updated=1
+                fi
+            done < "$doh_file"
+            log "Injected DoH & Private Relay blocklist into $adguard_yaml"
         fi
     fi
 fi

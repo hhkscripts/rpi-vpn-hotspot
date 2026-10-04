@@ -210,6 +210,12 @@ def check_docker_container(container: str) -> Optional[bool]:
     if ok and out.lower() in ["true", "false"]:
         return out.lower() == "true"
 
+    ok_sudo, out_sudo, _ = runner(
+        ["sudo", "docker", "inspect", "-f", "{{.State.Running}}", container], timeout=5
+    )
+    if ok_sudo and out_sudo.lower() in ["true", "false"]:
+        return out_sudo.lower() == "true"
+
     if (
         os.path.exists("/host/bin/docker")
         or os.path.exists("/host/usr/bin/docker")
