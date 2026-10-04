@@ -1,6 +1,13 @@
 {
-  "include": ["telegrambot/bot.py"],
-  "exclude": ["telegrambot/.venv", "telegrambot/hotspot-manager.py"],
+  "include": [
+    "telegrambot",
+    "scripts",
+    "tests"
+  ],
+  "exclude": [
+    "telegrambot/.venv",
+    "telegrambot/venv"
+  ],
   "venvPath": "telegrambot",
   "venv": ".venv",
   "pythonVersion": "3.11",
