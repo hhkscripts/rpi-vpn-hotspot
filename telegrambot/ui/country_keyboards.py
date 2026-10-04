@@ -50,7 +50,7 @@ def make_region_keyboard() -> InlineKeyboardMarkup:
             )
         ],
         [
-            InlineKeyboardButton("🔙 Back to Menu", callback_data="menu_switch"),
+            InlineKeyboardButton("🔙 Back to Status", callback_data="refresh_status"),
             InlineKeyboardButton(
                 "Refresh",
                 callback_data="refresh_status",

@@ -6,6 +6,7 @@ from telegrambot.constants.emojis import (
     EMOJI_ADGUARD,
     EMOJI_AMNEZIAWG,
     EMOJI_CLIENTS,
+    EMOJI_GLOBE,
     EMOJI_HELP,
     EMOJI_IPV6,
     EMOJI_RPI,
@@ -33,6 +34,7 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
             KeyboardButton("AdGuard", icon_custom_emoji_id=EMOJI_ADGUARD),
         ],
         [
+            KeyboardButton("Country", icon_custom_emoji_id=EMOJI_GLOBE),
             KeyboardButton("Help", icon_custom_emoji_id=EMOJI_HELP),
         ],
     ],

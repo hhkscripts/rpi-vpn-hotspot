@@ -27,6 +27,7 @@ class TestTelegramBotUI(unittest.TestCase):
         self.assertIn("Switch VPN", button_texts)
         self.assertIn("IPv6 Mode", button_texts)
         self.assertIn("AdGuard", button_texts)
+        self.assertIn("Country", button_texts)
         self.assertIn("Help", button_texts)
 
     def test_status_keyboard_sing0_active(self):
@@ -52,6 +53,7 @@ class TestTelegramBotUI(unittest.TestCase):
         self.assertIn("switch_tun0", callbacks)
         self.assertIn("menu_country", callbacks)
         self.assertIn("switch_auto", callbacks)
+        self.assertIn("refresh_status", callbacks)
 
     def test_adguard_keyboard_toggle(self):
         kb_on = make_adguard_keyboard(adguard_on=True)
@@ -80,6 +82,7 @@ class TestTelegramBotUI(unittest.TestCase):
         ]
         self.assertIn("region_asia", reg_callbacks)
         self.assertIn("country_direct", reg_callbacks)
+        self.assertIn("refresh_status", reg_callbacks)
 
         country_kb = make_country_keyboard("asia")
         self.assertIsNotNone(country_kb)

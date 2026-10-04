@@ -38,6 +38,7 @@ from telegrambot.handlers.common import help_command, start
 from telegrambot.handlers.country import (
     country_callback,
     country_command,
+    country_menu_command,
 )
 from telegrambot.handlers.ipv6 import (
     ipv6_callback,
@@ -67,10 +68,13 @@ def create_application() -> Application:
     app.add_handler(CommandHandler("status", status_command))
     app.add_handler(CommandHandler("restart", restart_command))
     app.add_handler(CommandHandler("restart_vpn", restart_vpn_command))
+    app.add_handler(CommandHandler("vpn", switch_menu_command))
     app.add_handler(CommandHandler("switch_vpn", switch_vpn_command))
     app.add_handler(CommandHandler("switch", switch_menu_command))
     app.add_handler(CommandHandler("country", country_command))
     app.add_handler(CommandHandler("countries", country_command))
+    app.add_handler(CommandHandler("region", country_menu_command))
+    app.add_handler(CommandHandler("regions", country_menu_command))
     app.add_handler(CommandHandler("fix", fix_command))
     app.add_handler(CommandHandler("clients", clients_command))
     app.add_handler(CommandHandler("help", help_command))
@@ -83,7 +87,9 @@ def create_application() -> Application:
     )
     app.add_handler(CallbackQueryHandler(switch_vpn_callback, pattern=switch_pattern))
     app.add_handler(
-        CallbackQueryHandler(country_callback, pattern="^(country_|menu_country)")
+        CallbackQueryHandler(
+            country_callback, pattern=r"^(country_|menu_country|region_)"
+        )
     )
     app.add_handler(CallbackQueryHandler(ipv6_callback, pattern="^(ipv6_|menu_ipv6)"))
     app.add_handler(

@@ -36,11 +36,25 @@ async def handle_text_message(
 
     if text in ["status", "stat"] or normalized == "status":
         await status_command(update, context)
-    elif text in ["switch vpn", "switch_vpn", "switch"] or normalized in [
+    elif text in [
+        "switch vpn",
         "switch_vpn",
         "switch",
+        "vpn",
+        "/vpn",
+    ] or normalized in [
+        "switch_vpn",
+        "switch",
+        "vpn",
     ]:
         await switch_menu_command(update, context)
+    elif text.startswith("vpn ") or text.startswith("/vpn "):
+        parts = text.split()
+        if len(parts) > 1:
+            context.args = [parts[1]]
+            await switch_vpn_command(update, context)
+        else:
+            await switch_menu_command(update, context)
     elif text in ["adguard", "adguard home", "adguard_home"] or normalized in [
         "adguard",
         "adguard_home",
@@ -88,17 +102,28 @@ async def handle_text_message(
     elif text in [
         "country",
         "countries",
+        "region",
+        "regions",
         "exit country",
         "exit_country",
         "/country",
         "/countries",
+        "/region",
+        "/regions",
     ] or normalized in [
         "country",
         "countries",
+        "region",
+        "regions",
         "exit_country",
     ]:
         await country_menu_command(update, context)
-    elif text.startswith("country") or text.startswith("/country"):
+    elif (
+        text.startswith("country")
+        or text.startswith("/country")
+        or text.startswith("region")
+        or text.startswith("/region")
+    ):
         parts = text.split()
         if len(parts) > 1:
             context.args = [parts[1]]

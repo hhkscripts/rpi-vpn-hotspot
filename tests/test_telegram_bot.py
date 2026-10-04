@@ -5,6 +5,7 @@ import unittest
 from tests.bot.test_app import TestTelegramBotAppCreation
 from tests.bot.test_config import TestTelegramBotConfig
 from tests.bot.test_health import TestTelegramBotHealthServer
+from tests.bot.test_router import TestTelegramBotTextRouter
 from tests.bot.test_runner import TestTelegramBotRunnerConfigParsers
 from tests.bot.test_ui import TestTelegramBotUI
 
@@ -14,6 +15,7 @@ __all__ = [
     "TestTelegramBotRunnerConfigParsers",
     "TestTelegramBotHealthServer",
     "TestTelegramBotAppCreation",
+    "TestTelegramBotTextRouter",
 ]
 
 if __name__ == "__main__":

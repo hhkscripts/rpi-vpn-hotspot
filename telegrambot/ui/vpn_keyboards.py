@@ -52,5 +52,13 @@ def make_switch_vpn_keyboard() -> InlineKeyboardMarkup:
                 icon_custom_emoji_id=EMOJI_REFRESH,
             ),
         ],
+        [
+            InlineKeyboardButton("🔙 Back to Status", callback_data="refresh_status"),
+            InlineKeyboardButton(
+                "Refresh",
+                callback_data="refresh_status",
+                icon_custom_emoji_id=EMOJI_REFRESH,
+            ),
+        ],
     ]
     return InlineKeyboardMarkup(keyboard)
