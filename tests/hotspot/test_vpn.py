@@ -72,7 +72,9 @@ class RestartVpnTests(unittest.TestCase):
 
         self.assertEqual(run.call_args_list[0].args[0], ["test", "-x", "/apply-routes"])
         self.assertEqual(run.call_args_list[1].args[0], ["sudo", "/apply-routes"])
-        self.assertEqual(run.call_args_list[2].args[0], ["test", "-x", "/github-routes"])
+        self.assertEqual(
+            run.call_args_list[2].args[0], ["test", "-x", "/github-routes"]
+        )
         self.assertEqual(run.call_args_list[3].args[0], ["sudo", "/github-routes"])
 
 

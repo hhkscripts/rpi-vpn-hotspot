@@ -13,7 +13,7 @@ from .detection import (
     get_vpn_connection_name,
     wait_for_interface,
 )
-from .routing import apply_vpn_policy, refresh_github_routes, refresh_routes
+from .routing import apply_vpn_policy, refresh_routes
 from .runner import get_configured_backend, log, run_args, update_goodwifi_conf
 
 

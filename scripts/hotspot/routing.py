@@ -89,4 +89,3 @@ def refresh_routes() -> bool:
 
 # Backward-compatible alias for existing callers and external integrations
 refresh_github_routes = refresh_routes
-
