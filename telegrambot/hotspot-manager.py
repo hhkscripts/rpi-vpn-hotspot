@@ -273,6 +273,15 @@ FLAG_MAP = {
     "id": "🇮🇩",
     "ph": "🇵🇭",
     "tw": "🇹🇼",
+    "cl": "🇨🇱",
+    "cz": "🇨🇿",
+    "dk": "🇩🇰",
+    "gr": "🇬🇷",
+    "hr": "🇭🇷",
+    "il": "🇮🇱",
+    "lt": "🇱🇹",
+    "lux": "🇱🇺",
+    "lu": "🇱🇺",
 }
 
 
@@ -755,21 +764,26 @@ def get_country_profiles() -> dict[str, dict[str, str]]:
         "id": "Indonesia",
         "ph": "Philippines",
         "tw": "Taiwan",
+        "cl": "Chile",
+        "cz": "Czech Republic",
+        "dk": "Denmark",
+        "gr": "Greece",
+        "hr": "Croatia",
+        "il": "Israel",
+        "lt": "Lithuania",
+        "lux": "Luxembourg",
+        "lu": "Luxembourg",
     }
     for fname in sorted(os.listdir(profiles_dir)):
-        if not (fname.endswith(".conf") or fname.endswith(".ovpn")):
+        if not fname.endswith(".ovpn"):
             continue
-        m = re.search(r"[-_]([a-z]{2}(?:-[a-z]{2,3})?)[-_.]", fname.lower())
-        cc = m.group(1) if m else fname.split(".")[0][-2:].lower()
+        m = re.search(r"[-_]([a-z]{2,3}(?:-[a-z]{2,3})?)[-_.]", fname.lower())
+        cc = m.group(1) if m else fname.split(".")[0].split("_")[-2].lower()
         base_cc = cc.split("-")[0]
         flag = FLAG_MAP.get(base_cc, "🌐")
         cname = name_map.get(base_cc, base_cc.upper())
         if "-" in cc:
             cname += " (" + cc.split("-")[1].upper() + ")"
-
-        # If cc already registered as WireGuard (.conf), keep WireGuard
-        if cc in profiles and profiles[cc]["filename"].endswith(".conf") and fname.endswith(".ovpn"):
-            continue
 
         profiles[cc] = {
             "filename": fname,
