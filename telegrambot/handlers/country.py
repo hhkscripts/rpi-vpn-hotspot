@@ -79,6 +79,13 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     data = query.data
+    if data == "noop":
+        try:
+            await query.answer()
+        except Exception:
+            pass
+        return
+
     profiles = get_bot_country_profiles()
     current_display = _get_current_display()
 

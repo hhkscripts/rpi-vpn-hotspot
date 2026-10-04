@@ -101,7 +101,7 @@ def create_application() -> Application:
     app.add_handler(CallbackQueryHandler(switch_vpn_callback, pattern=switch_pattern))
     app.add_handler(
         CallbackQueryHandler(
-            country_callback, pattern=r"^(country_|menu_country|region_)"
+            country_callback, pattern=r"^(country_|menu_country|region_|noop$)"
         )
     )
     app.add_handler(CallbackQueryHandler(ipv6_callback, pattern="^(ipv6_|menu_ipv6)"))

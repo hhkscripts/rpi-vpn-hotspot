@@ -81,6 +81,14 @@ class TestTelegramBotUI(unittest.TestCase):
 
         country_kb = make_country_keyboard("asia")
         self.assertIsNotNone(country_kb)
+        country_callbacks = [
+            btn.callback_data for row in country_kb.inline_keyboard for btn in row
+        ]
+        self.assertIn("region_all", country_callbacks)
+        self.assertIn("region_europe", country_callbacks)
+        self.assertIn("noop", country_callbacks)
+        self.assertIn("country_direct", country_callbacks)
+        self.assertIn("menu_country", country_callbacks)
 
 
 if __name__ == "__main__":

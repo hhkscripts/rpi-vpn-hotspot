@@ -105,19 +105,64 @@ def make_region_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 
+REGION_ORDER = ["asia", "europe", "americas", "oceania-africa", "all"]
+
+REGION_INFO = {
+    "asia": {"name": "Asia & Mideast", "symbol": "🌏"},
+    "europe": {"name": "Europe", "symbol": "🏰"},
+    "americas": {"name": "Americas", "symbol": "🌎"},
+    "oceania-africa": {"name": "Oceania & Africa", "symbol": "🌍"},
+    "all": {"name": "All Countries", "symbol": "📋"},
+}
+
+
 def make_country_keyboard(
     selected_region: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
-    """Build grid keyboard of countries in a selected region."""
+    """Build grid keyboard of countries in a selected region with pagination bar."""
     profiles = get_bot_country_profiles()
-    if selected_region and selected_region != "all":
-        filtered = {
-            cc: p for cc, p in profiles.items() if p.get("region") == selected_region
-        }
+    curr_reg = selected_region if selected_region in REGION_ORDER else "all"
+
+    if curr_reg != "all":
+        filtered = {cc: p for cc, p in profiles.items() if p.get("region") == curr_reg}
     else:
         filtered = profiles
 
-    keyboard = []
+    counts = {"asia": 0, "europe": 0, "americas": 0, "oceania-africa": 0}
+    for p in profiles.values():
+        reg = p.get("region", "other")
+        if reg in counts:
+            counts[reg] += 1
+    counts["all"] = len(profiles)
+
+    idx = REGION_ORDER.index(curr_reg)
+    prev_reg = REGION_ORDER[(idx - 1) % len(REGION_ORDER)]
+    next_reg = REGION_ORDER[(idx + 1) % len(REGION_ORDER)]
+
+    info = REGION_INFO.get(curr_reg, {"name": curr_reg.capitalize(), "symbol": "🌐"})
+    count = counts.get(curr_reg, len(filtered))
+    custom_icon = get_region_emoji_id(curr_reg)
+
+    if custom_icon:
+        title_btn = InlineKeyboardButton(
+            f"{info['name']} ({count})",
+            callback_data="noop",
+            icon_custom_emoji_id=custom_icon,
+        )
+    else:
+        title_btn = InlineKeyboardButton(
+            f"{info['symbol']} {info['name']} ({count})",
+            callback_data="noop",
+        )
+
+    keyboard = [
+        [
+            InlineKeyboardButton("◀️", callback_data=f"region_{prev_reg}"),
+            title_btn,
+            InlineKeyboardButton("▶️", callback_data=f"region_{next_reg}"),
+        ]
+    ]
+
     row = []
     for cc, p in sorted(filtered.items()):
         flag = p.get("flag", FLAG_MAP.get(cc.split("-")[0], "🌐"))
@@ -157,7 +202,7 @@ def make_country_keyboard(
     )
     keyboard.append(
         [
-            InlineKeyboardButton("⬅️ Back to Regions", callback_data="menu_country"),
+            InlineKeyboardButton("📋 All Regions", callback_data="menu_country"),
             InlineKeyboardButton(
                 "Refresh",
                 callback_data="refresh_status",
