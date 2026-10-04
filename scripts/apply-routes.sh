@@ -31,12 +31,14 @@ elif [ -d "$PROJECT_DIR/adguard/conf" ]; then
     ADGUARD_CONF_DIR="$PROJECT_DIR/adguard/conf"
 elif [ -n "$REPO_ROOT" ] && [ -d "$REPO_ROOT/adguard/conf" ]; then
     ADGUARD_CONF_DIR="$REPO_ROOT/adguard/conf"
-elif [ -d "/home/hhk/Projects/vpn/adguard/conf" ]; then
-    ADGUARD_CONF_DIR="/home/hhk/Projects/vpn/adguard/conf"
 elif [ -d "/opt/goodwifi/adguard/conf" ]; then
     ADGUARD_CONF_DIR="/opt/goodwifi/adguard/conf"
 elif [ -d "/etc/goodwifi/adguard/conf" ]; then
     ADGUARD_CONF_DIR="/etc/goodwifi/adguard/conf"
+elif [ -n "${SUDO_USER:-}" ] && [ -d "/home/$SUDO_USER/Projects/vpn/adguard/conf" ]; then
+    ADGUARD_CONF_DIR="/home/$SUDO_USER/Projects/vpn/adguard/conf"
+elif [ -n "${HOME:-}" ] && [ -d "$HOME/Projects/vpn/adguard/conf" ]; then
+    ADGUARD_CONF_DIR="$HOME/Projects/vpn/adguard/conf"
 else
     ADGUARD_CONF_DIR=""
 fi

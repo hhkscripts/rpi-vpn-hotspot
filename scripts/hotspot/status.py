@@ -3,6 +3,7 @@
 Hotspot network diagnostics and status inspection.
 """
 
+import os
 import re
 import time
 from typing import Optional
@@ -173,11 +174,14 @@ def get_status() -> HotspotStatus:
             break
 
     bot_candidates = [
-        cfg.get("telegram_container", "mpxraspberrypibot"),
+        os.getenv("TELEGRAM_CONTAINER"),
+        cfg.get("telegram_container"),
         "mpxraspberrypibot",
         "telegrambot",
+        "vpn-telegrambot-1",
+        "vpn_telegrambot_1",
     ]
-    for name in dict.fromkeys(bot_candidates):
+    for name in dict.fromkeys(c for c in bot_candidates if c):
         st = chk_container(name)
         if st is not None:
             services_status["telegrambot"] = st

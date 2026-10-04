@@ -74,6 +74,34 @@ class CountryProfileTests(unittest.TestCase):
             if os.path.exists(tf_path):
                 os.unlink(tf_path)
 
+    def test_generate_singbox_config_ovpn_detour(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".ovpn", delete=False) as tf:
+            tf.write(
+                "client\n"
+                "dev tun\n"
+                "remote de.nordvpn.com 1195\n"
+                "cipher AES-128-GCM\n"
+                "auth SHA256\n"
+                "<ca>\nfake_ca\n</ca>\n"
+                "<cert>\nfake_cert\n</cert>\n"
+                "<key>\nfake_key\n</key>\n"
+            )
+            tf_path = tf.name
+
+        try:
+            cfg = hotspot_manager.generate_singbox_config(tf_path)
+            self.assertIn("endpoints", cfg)
+            ep = cfg["endpoints"][0]
+            self.assertEqual(ep["type"], "openvpn-client")
+            self.assertEqual(ep["server_port"], 1195)
+            self.assertEqual(ep["auth"], "SHA256")
+            self.assertIn("AES-128-GCM", ep["data_ciphers"])
+            self.assertEqual(ep["tls"]["server_name"], "de.nordvpn.com")
+            self.assertEqual(cfg["route"]["rules"][1]["outbound"], "ovpn-out")
+        finally:
+            if os.path.exists(tf_path):
+                os.unlink(tf_path)
+
     def test_switch_unlimited_country(self):
         with (
             patch.object(

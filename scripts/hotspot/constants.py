@@ -3,6 +3,7 @@
 Hotspot Manager Constants, Types, and Configurations.
 """
 
+import os
 from typing import Optional, TypedDict
 
 
@@ -64,8 +65,8 @@ CONFIG: Config = {
     "log_file": "/var/log/hotspot-manager.log",
     "ping_target": "8.8.8.8",
     "hotspot_subnet": "10.42.0.0/24",
-    "adguard_container": "adguardhome",
-    "telegram_container": "mpxraspberrypibot",
+    "adguard_container": os.getenv("ADGUARD_CONTAINER", "adguardhome"),
+    "telegram_container": os.getenv("TELEGRAM_CONTAINER", "mpxraspberrypibot"),
     "adguard_enabled": True,
 }
 
