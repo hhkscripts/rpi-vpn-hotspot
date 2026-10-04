@@ -50,12 +50,14 @@ Traffic is split dynamically using Linux policy routing, packet marks, and ipset
 - `dnsmasq`: Lightweight DHCP server assigning IP leases (`10.42.0.10`–`10.42.0.100`) and advertising AdGuard Home as DNS (`10.42.0.1:53`).
 - `AdGuard Home`: Dockerized DNS filter on host network; blocks ads and assigns resolved domains into policy ipsets.
 - `NetworkManager` & `awg-quick`: Manages Ethernet, Wi-Fi AP, AmneziaWG, and OpenVPN connections.
-- `configs/90-hotspot-vpn-policy`: Core firewall and policy routing dispatcher script (mirrored at `scripts/vpn-routing.sh`).
+- `configs/90-hotspot-vpn-policy`: Core firewall and policy routing dispatcher script (symlinked from `scripts/vpn-routing.sh`).
 - `configs/20-hotspot-manager`: NetworkManager dispatcher script ensuring VPN policy on network change.
-- `scripts/hotspot-manager.py`: Complete CLI management tool for status, switching backends, and self-healing.
+- `scripts/hotspot-manager.py`: Thin CLI entrypoint (~32 lines) delegating to `scripts/hotspot/`.
+- `scripts/hotspot/`: Modular Python core package (<300 lines/file: routing, Sing-box, AdGuard, diagnostics, CLI).
 - `scripts/github-vpn-routes.sh`: Fetches published GitHub IPv4 CIDRs and loads them into `vpn_routes`.
 - `scripts/apply-routes.sh`: Compiles modular route definitions (`configs/routes/`) into AdGuard Home and host ipsets.
-- `telegrambot/`: Python Telegram Bot with interactive inline keyboards, real-time alerts, and VPN switcher.
+- `telegrambot/`: Dockerized Python Telegram Bot following a Granular Modular Architecture (<300 lines/file).
+- `tests/`: Modular test suites for Telegram Bot (`tests/bot/`) and Hotspot Manager (`tests/hotspot/`).
 
 ---
 
@@ -156,11 +158,12 @@ alias hf="sudo /usr/local/bin/hotspot-manager.py --fix"
 Useful commands:
 
 ```bash
-hotspot --status       # View current status, VPN backend, IP, and clients
-hotspot --clients      # List connected client devices and IP/MAC mappings
-hotspot --restart-vpn  # Reconnect active VPN and refresh routes
-hotspot --restart      # Restart hotspot services and reapply firewall policy
-hf                     # Run automated self-healing fix
+hotspot --status        # View current status, VPN backend, IP, and clients
+hotspot --clients       # List connected client devices and IP/MAC mappings
+hotspot --restart-vpn   # Reconnect active VPN and refresh routes
+hotspot --restart       # Restart hotspot services and reapply firewall policy
+hotspot --watchdog-dns  # Check AdGuard health and auto-failover to dnsmasq if crashed
+hf                      # Run automated self-healing fix
 ```
 
 ---
@@ -171,6 +174,13 @@ GoodWifi clients query `10.42.0.1:53` for DNS. AdGuard Home performs ad-blocking
 
 - `github.com` & subdomains -> `vpn_domains`
 - `binance.com`, `bybit.com`, Myanmar banks -> `local_routes`
+- DoH & Apple Private Relay bootstrap domains -> blocked (forces devices to use local DNS so routes are populated)
+
+### DoH & Apple Private Relay Protection
+To ensure mobile devices cannot bypass policy routing via encrypted DNS:
+- **DNS-over-TLS (Port 853)**: Hard-rejected via `iptables` in `90-hotspot-vpn-policy`, forcing Android Private DNS to fail over to standard DHCP DNS.
+- **DNS-over-HTTPS (DoH)**: Public DoH bootstrap domains (`cloudflare-dns.com`, `dns.google`, `dns.quad9.net`, etc.) are blocked via AdGuard Home rules (`configs/routes/doh-blocklist.txt`).
+- **Apple iCloud Private Relay**: `mask.icloud.com` and `mask-h2.icloud.com` are blocked, which triggers Apple devices to gracefully disable Private Relay on GoodWifi Wi-Fi as per Apple specifications.
 
 ### Verifying DNS & Ipsets
 
@@ -189,7 +199,7 @@ sudo ipset list vpn_domains
 > [!TIP]
 > **Ad Blocking on Client Devices:**
 > If ads appear on specific client devices:
-> 1. Check if the device has **Private DNS** or **DNS-over-HTTPS (DoH)** enabled. Private DNS ignores local Wi-Fi DNS and queries public resolvers directly. Set Android Private DNS to "Off" when on GoodWifi.
+> 1. With GoodWifi's DoH/DoT hardening, devices automatically use local DNS. Ensure mobile devices have "Private DNS" set to "Off" or "Automatic" (do not use a fixed third-party hostname like `dns.adguard.com` which would be blocked).
 > 2. Video in-stream ads (such as YouTube or Facebook video ads) are served from the same CDNs as media streams and cannot be blocked via DNS alone without breaking video playback.
 
 ---
