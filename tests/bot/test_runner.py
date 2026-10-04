@@ -67,6 +67,51 @@ class TestTelegramBotRunnerConfigParsers(unittest.TestCase):
                 self.assertIn("VLESS", res)
                 self.assertIn("JP", res)
 
+    def test_get_available_vpn_backends(self):
+        from telegrambot.core.runner import get_available_vpn_backends
+
+        def mock_exists(p):
+            if "sing-box" in p:
+                return True
+            if "awg0.conf" in p:
+                return True
+            return False
+
+        with patch("os.path.exists", side_effect=mock_exists):
+            with patch("os.path.isdir", return_value=False):
+                res = get_available_vpn_backends()
+                self.assertTrue(res["sing0"])
+                self.assertTrue(res["awg0"])
+                self.assertFalse(res["wg0"])
+                self.assertFalse(res["tun0"])
+
+    def test_get_vless_servers(self):
+        import json
+        from telegrambot.core.runner import get_vless_servers
+
+        fake_cfg = json.dumps(
+            {
+                "outbounds": [
+                    {
+                        "tag": "server-1",
+                        "settings": {"vnext": [{"address": "198.71.50.129"}]},
+                    },
+                    {
+                        "tag": "server-2",
+                        "settings": {"vnext": [{"address": "5.183.9.86"}]},
+                    },
+                ]
+            }
+        )
+        with patch("os.path.exists", return_value=True):
+            with patch("builtins.open", mock_open(read_data=fake_cfg)):
+                servers = get_vless_servers()
+                self.assertEqual(len(servers), 2)
+                self.assertEqual(servers[0][0], "1")
+                self.assertIn("198.71", servers[0][1])
+                self.assertEqual(servers[1][0], "2")
+                self.assertIn("5.183", servers[1][1])
+
 
 if __name__ == "__main__":
     unittest.main()

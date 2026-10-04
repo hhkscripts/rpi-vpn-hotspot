@@ -40,15 +40,37 @@ class TestTelegramBotUI(unittest.TestCase):
         self.assertIn("refresh_status", callbacks)
 
     def test_switch_vpn_keyboard(self):
-        kb = make_switch_vpn_keyboard()
-        callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-        self.assertIn("switch_reality_1", callbacks)
-        self.assertIn("switch_reality_2", callbacks)
-        self.assertIn("switch_awg0", callbacks)
-        self.assertIn("switch_tun0", callbacks)
-        self.assertIn("menu_country", callbacks)
-        self.assertIn("switch_auto", callbacks)
-        self.assertIn("refresh_status", callbacks)
+        # Test full available backends
+        kb_all = make_switch_vpn_keyboard(
+            available={"sing0": True, "awg0": True, "tun0": True, "wg0": True},
+            vless_servers=[("1", "VLESS S1"), ("2", "VLESS S2")],
+        )
+        callbacks_all = [
+            btn.callback_data for row in kb_all.inline_keyboard for btn in row
+        ]
+        self.assertIn("switch_reality_1", callbacks_all)
+        self.assertIn("switch_reality_2", callbacks_all)
+        self.assertIn("switch_awg0", callbacks_all)
+        self.assertIn("switch_tun0", callbacks_all)
+        self.assertIn("switch_wg0", callbacks_all)
+        self.assertIn("menu_country", callbacks_all)
+        self.assertIn("switch_auto", callbacks_all)
+        self.assertIn("refresh_status", callbacks_all)
+
+        # Test partial available backends (e.g. only awg0)
+        kb_awg_only = make_switch_vpn_keyboard(
+            available={"sing0": False, "awg0": True, "tun0": False, "wg0": False}
+        )
+        callbacks_awg = [
+            btn.callback_data for row in kb_awg_only.inline_keyboard for btn in row
+        ]
+        self.assertIn("switch_awg0", callbacks_awg)
+        self.assertNotIn("switch_reality_1", callbacks_awg)
+        self.assertNotIn("switch_tun0", callbacks_awg)
+        self.assertNotIn("switch_wg0", callbacks_awg)
+        self.assertNotIn("menu_country", callbacks_awg)
+        self.assertIn("switch_auto", callbacks_awg)
+        self.assertIn("refresh_status", callbacks_awg)
 
     def test_adguard_keyboard_toggle(self):
         kb_on = make_adguard_keyboard(adguard_on=True)
