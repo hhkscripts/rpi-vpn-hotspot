@@ -50,7 +50,7 @@ Traffic is split dynamically using Linux policy routing, packet marks, and ipset
 - `dnsmasq`: Lightweight DHCP server assigning IP leases (`10.42.0.10`–`10.42.0.100`) and advertising AdGuard Home as DNS (`10.42.0.1:53`).
 - `AdGuard Home`: Dockerized DNS filter on host network; blocks ads and assigns resolved domains into policy ipsets.
 - `NetworkManager` & `awg-quick`: Manages Ethernet, Wi-Fi AP, AmneziaWG, and OpenVPN connections.
-- `configs/90-hotspot-vpn-policy`: Core firewall and policy routing dispatcher script (symlinked from `scripts/vpn-routing.sh`).
+- `configs/90-hotspot-vpn-policy`: Core firewall and policy routing dispatcher script installed to `/etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy`.
 - `configs/20-hotspot-manager`: NetworkManager dispatcher script ensuring VPN policy on network change.
 - `scripts/hotspot-manager.py`: Thin CLI entrypoint (~32 lines) delegating to `scripts/hotspot/`.
 - `scripts/hotspot/`: Modular Python core package (<300 lines/file: routing, Sing-box, AdGuard, diagnostics, CLI).

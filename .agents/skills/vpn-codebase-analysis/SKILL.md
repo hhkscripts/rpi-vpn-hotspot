@@ -22,8 +22,9 @@ This script automatically verifies:
 1. **Hygiene & Duplication**: Ensures duplicate `hotspot-manager.py` is not reintroduced in `telegrambot/`.
 2. **Syntax & Compilation**: Verifies that all Python source files compile without errors.
 3. **Sweet Spot File Sizing**: Enforces that all modular files adhere to the Sweet Spot (<300 lines).
-4. **Telegram Bot Unit Tests**: Runs the 17 unit tests in `tests/test_telegram_bot.py`.
-5. **Hotspot Manager Unit Tests**: Runs the 25 unit tests in `tests/test_hotspot_manager.py`.
+4. **Modular Test Suite Isolation**: Ensures root test runners remain thin aggregators (<40 lines) without embedded TestCases.
+5. **Telegram Bot Unit Tests**: Runs the 29 unit tests in `tests/test_telegram_bot.py`.
+6. **Hotspot Manager Unit Tests**: Runs the 26 unit tests in `tests/test_hotspot_manager.py`.
 
 ---
 
@@ -38,6 +39,8 @@ When working on a feature, jump directly to the target file. Do NOT search or sc
 | **Exit Countries** (`country`, `singbox`, `vless`, `reality`) | `scripts/hotspot/singbox.py`, `profiles.py` | `telegrambot/handlers/country.py` | `telegrambot/ui/country_keyboards.py` | `tests/hotspot/test_singbox.py` |
 | **IPv6 Protection** (`ipv6`, `drop`, `reject`) | `scripts/hotspot/adguard.py` | `telegrambot/handlers/ipv6.py` | `telegrambot/ui/ipv6_keyboards.py` | `tests/hotspot/test_ipv6.py` |
 | **Routing & Firewall** (`routing`, `iptables`, `policy`) | `scripts/hotspot/routing.py`, `90-hotspot-vpn-policy` | - | - | `tests/test-vpn-scripts.sh` |
+| **Dynamic Emojis / Sticker Pack** (`emoji`, `sticker`, `flag`) | `telegrambot/core/dynamic_emojis.py` | `telegrambot/handlers/status.py` | `telegrambot/ui/dynamic_emojis.py` | `tests/bot/test_dynamic_emojis.py` |
+| **Text Router & Dispatch** (`menu`, `router`, `callback`) | - | `telegrambot/handlers/text_router.py` | `telegrambot/ui/main_keyboard.py` | `tests/bot/test_router.py` |
 | **Client Devices** (`clients`, `dhcp`, `mac`) | `scripts/hotspot/detection.py` | `telegrambot/handlers/maintenance.py` | - | `tests/hotspot/test_detection.py` |
 | **Bot Auth & Config** (`auth`, `token`, `allowed users`) | - | `telegrambot/core/config.py` | - | `tests/bot/test_config.py` |
 | **Host CLI Dispatch** (`cli`, `args`, `flags`) | `scripts/hotspot/cli.py` | `telegrambot/core/runner.py` | - | `tests/hotspot/test_runner.py` |
@@ -105,3 +108,5 @@ tests/test-vpn-scripts.sh
 1. **Never copy `hotspot-manager.py` into `telegrambot/`**: Maintain single source of truth in `scripts/`.
 2. **Keep files in the Sweet Spot (<300 lines)**: If a handler grows beyond 300 lines, extract helper logic into `core/` or `ui/`.
 3. **Keep `sys.path` compatibility in `bot.py`**: Ensures the bot works both standalone inside Docker (`/app`) and within the repository.
+4. **Modular Test Suite Isolation**: Root test runner files (`tests/test_telegram_bot.py`, `tests/test_hotspot_manager.py`) must remain thin aggregators (<40 lines). No `unittest.TestCase` subclasses may be defined directly in root runners. All tests must reside in `tests/bot/` and `tests/hotspot/`.
+

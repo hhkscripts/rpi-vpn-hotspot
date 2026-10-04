@@ -43,6 +43,8 @@ Do NOT scan or grep the whole codebase for known features. Use this direct mappi
 | **Exit Countries** (`country`, `singbox`, `vless`, `reality`) | `scripts/hotspot/singbox.py`, `profiles.py` | `telegrambot/handlers/country.py` | `telegrambot/ui/country_keyboards.py` | `tests/hotspot/test_singbox.py` |
 | **IPv6 Protection** (`ipv6`, `drop`, `reject`) | `scripts/hotspot/adguard.py` | `telegrambot/handlers/ipv6.py` | `telegrambot/ui/ipv6_keyboards.py` | `tests/hotspot/test_ipv6.py` |
 | **Routing & Firewall** (`routing`, `iptables`, `policy`) | `scripts/hotspot/routing.py`, `90-hotspot-vpn-policy` | - | - | `tests/test-vpn-scripts.sh` |
+| **Dynamic Emojis / Sticker Pack** (`emoji`, `sticker`, `flag`) | `telegrambot/core/dynamic_emojis.py` | `telegrambot/handlers/status.py` | `telegrambot/ui/dynamic_emojis.py` | `tests/bot/test_dynamic_emojis.py` |
+| **Text Router & Dispatch** (`menu`, `router`, `callback`) | - | `telegrambot/handlers/text_router.py` | `telegrambot/ui/main_keyboard.py` | `tests/bot/test_router.py` |
 | **Client Devices** (`clients`, `dhcp`, `mac`) | `scripts/hotspot/detection.py` | `telegrambot/handlers/maintenance.py` | - | `tests/hotspot/test_detection.py` |
 | **Bot Auth & Config** (`auth`, `token`, `allowed users`) | - | `telegrambot/core/config.py` | - | `tests/bot/test_config.py` |
 | **Host CLI Dispatch** (`cli`, `args`, `flags`) | `scripts/hotspot/cli.py` | `telegrambot/core/runner.py` | - | `tests/hotspot/test_runner.py` |
@@ -53,3 +55,5 @@ Do NOT scan or grep the whole codebase for known features. Use this direct mappi
 3. **Verify changes before committing**: Run `.agents/skills/vpn-codebase-analysis/scripts/analyze.sh` to ensure all tests, syntax, and architectural invariants pass.
 4. **Zero Token Waste Navigation**: When addressing a specific feature (e.g. "switch vpn", "adguard"), jump directly to the target file from the Fast-Lookup Topic Matrix. Never perform broad multi-file searches or full-codebase scans.
 5. **Instant Analysis**: When asked to analyze, inspect, or test the codebase, run `analyze.sh` directly in bash rather than reading multiple files into context.
+6. **Modular Test Suites Strict Isolation**: Never dump test cases or unittest classes directly into root test runners (`tests/test_telegram_bot.py` or `tests/test_hotspot_manager.py`). Root runners are strictly thin suite aggregators (<40 lines). All new tests must be written in granular modular files (`tests/bot/test_*.py` mirroring `telegrambot/` and `tests/hotspot/test_*.py` mirroring `scripts/hotspot/`).
+

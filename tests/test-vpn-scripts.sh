@@ -11,8 +11,6 @@ SETUP="$ROOT/setup.sh"
 UNINSTALL="$ROOT/uninstall.sh"
 QUALITY_WORKFLOW="$ROOT/.github/workflows/quality.yml"
 
-cmp -s "$POLICY" "$ROOT/scripts/vpn-routing.sh"
-
 test_policy_skips_mtu_when_tun_is_absent() {
   local tmp fakebin policy_copy
   tmp="$(mktemp -d)"
