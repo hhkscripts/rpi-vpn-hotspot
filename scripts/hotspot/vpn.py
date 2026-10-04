@@ -24,6 +24,15 @@ def _resolve_refresh(ctx):
     return getattr(ctx, "refresh_routes", refresh_routes)
 
 
+def _finish_vpn_activation(ctx, iface: str, apply_pol, refresh_routes) -> bool:
+    ok = apply_pol(iface)
+    refresh_routes()
+    ensure_adg = getattr(ctx, "ensure_adguard_resilience", None)
+    if ensure_adg:
+        ensure_adg()
+    return ok
+
+
 def switch_vpn(target: str) -> bool:
     ctx = Context.get()
     logger = getattr(ctx, "log", log)
@@ -58,9 +67,7 @@ def switch_vpn(target: str) -> bool:
         runner(["sudo", "systemctl", "enable", "xray", "sing-box"], timeout=15)
         runner(["sudo", "systemctl", "restart", "xray", "sing-box"], timeout=30)
         wait_if("sing0", timeout=10)
-        ok = apply_pol("sing0")
-        refresh_routes()
-        return ok
+        return _finish_vpn_activation(ctx, "sing0", apply_pol, refresh_routes)
     elif target in ["awg0", "wg0"]:
         runner(["sudo", "systemctl", "stop", "sing-box"], timeout=15)
         runner(["sudo", "systemctl", "disable", "sing-box"], timeout=15)
@@ -71,9 +78,7 @@ def switch_vpn(target: str) -> bool:
         runner(["sudo", "systemctl", "enable", svc], timeout=15)
         runner(["sudo", "systemctl", "start", svc], timeout=30)
         wait_if(target, timeout=10)
-        ok = apply_pol(target)
-        refresh_routes()
-        return ok
+        return _finish_vpn_activation(ctx, target, apply_pol, refresh_routes)
     elif target == "tun0":
         runner(["sudo", "systemctl", "stop", "sing-box"], timeout=15)
         runner(["sudo", "systemctl", "disable", "sing-box"], timeout=15)
@@ -86,9 +91,7 @@ def switch_vpn(target: str) -> bool:
                 ["sudo", "systemctl", "disable", "awg-quick@awg0", "wg-quick@wg0"],
                 timeout=15,
             )
-            ok = apply_pol("tun0")
-            refresh_routes()
-            return ok
+            return _finish_vpn_activation(ctx, "tun0", apply_pol, refresh_routes)
         else:
             logger(
                 "OpenVPN activation failed. Reverting to AmneziaWG (awg0)...", "WARN"
@@ -97,15 +100,12 @@ def switch_vpn(target: str) -> bool:
             runner(["sudo", "systemctl", "enable", "awg-quick@awg0"], timeout=15)
             runner(["sudo", "systemctl", "start", "awg-quick@awg0"], timeout=20)
             wait_if("awg0", timeout=10)
-            apply_pol("awg0")
-            refresh_routes()
+            _finish_vpn_activation(ctx, "awg0", apply_pol, refresh_routes)
             upd_conf("VPN_BACKEND", "awg0")
             return False
     else:  # auto
         iface, _ = getattr(ctx, "get_active_vpn_interface")()
-        ok = apply_pol(iface)
-        refresh_routes()
-        return ok
+        return _finish_vpn_activation(ctx, iface, apply_pol, refresh_routes)
 
 
 def restart_singbox() -> bool:
@@ -124,9 +124,7 @@ def restart_singbox() -> bool:
     runner(["sudo", "systemctl", "restart", "sing-box"], timeout=25)
     if wait_if("sing0", timeout=15):
         logger("Sing-box Reality connected", "SUCCESS")
-        policy_ok = apply_pol("sing0")
-        refresh_routes()
-        return policy_ok
+        return _finish_vpn_activation(ctx, "sing0", apply_pol, refresh_routes)
 
     logger(
         "Sing-box restart timed out. Attempting auto-recovery to Direct VLESS...",
@@ -151,9 +149,7 @@ def restart_singbox() -> bool:
                 "Auto-recovery successful: Sing-box Reality connected (Direct)",
                 "SUCCESS",
             )
-            policy_ok = apply_pol("sing0")
-            refresh_routes()
-            return policy_ok
+            return _finish_vpn_activation(ctx, "sing0", apply_pol, refresh_routes)
     except Exception as e:
         logger(f"Auto-recovery failed: {e}", "ERROR")
 
@@ -173,9 +169,7 @@ def restart_amneziawg() -> bool:
     runner(["sudo", "systemctl", "restart", "awg-quick@awg0"], timeout=30)
     if wait_if("awg0", timeout=10):
         logger("AmneziaWG connected", "SUCCESS")
-        policy_ok = apply_pol("awg0")
-        refresh_routes()
-        return policy_ok
+        return _finish_vpn_activation(ctx, "awg0", apply_pol, refresh_routes)
     logger("AmneziaWG restart failed", "ERROR")
     return False
 
@@ -192,9 +186,7 @@ def restart_wireguard() -> bool:
     runner(["sudo", "systemctl", "restart", "wg-quick@wg0"], timeout=30)
     if wait_if("wg0", timeout=10):
         logger("WireGuard connected", "SUCCESS")
-        policy_ok = apply_pol("wg0")
-        refresh_routes()
-        return policy_ok
+        return _finish_vpn_activation(ctx, "wg0", apply_pol, refresh_routes)
     logger("WireGuard restart failed", "ERROR")
     return False
 
@@ -226,9 +218,7 @@ def restart_openvpn() -> bool:
         )
         if (ok or chk_vpn()) and wait_if("tun0", timeout=10):
             logger("VPN connected", "SUCCESS")
-            policy_ok = apply_pol()
-            refresh_routes()
-            return policy_ok
+            return _finish_vpn_activation(ctx, "tun0", apply_pol, refresh_routes)
 
         last_error = err or out or "VPN interface did not become available"
         if attempt < 2:

@@ -77,6 +77,30 @@ class AdGuardStateTests(unittest.TestCase):
             self.assertEqual(state, "adguard_healthy")
             dnsm.assert_called_once_with(enable_fallback=False)
 
+    def test_ensure_adguard_resilience_recovered(self):
+        with (
+            patch.object(hotspot_manager, "get_adguard_enabled", return_value=True),
+            patch.object(
+                hotspot_manager, "check_docker_container", side_effect=[False, True]
+            ),
+            patch.object(
+                hotspot_manager, "configure_dnsmasq_fallback", return_value=True
+            ) as dnsm,
+            patch.object(
+                hotspot_manager, "run_args", return_value=(True, "", "")
+            ) as run,
+            patch("time.sleep"),
+            patch.object(hotspot_manager, "log"),
+        ):
+            ok, state = hotspot_manager.ensure_adguard_resilience()
+            self.assertTrue(ok)
+            self.assertEqual(state, "adguard_recovered")
+            dnsm.assert_called_once_with(enable_fallback=False)
+            start_call = any(
+                call.args[0][:2] == ["docker", "start"] for call in run.call_args_list
+            )
+            self.assertTrue(start_call)
+
     def test_ensure_adguard_resilience_crashed_failover(self):
         with (
             patch.object(hotspot_manager, "get_adguard_enabled", return_value=True),
@@ -87,12 +111,18 @@ class AdGuardStateTests(unittest.TestCase):
             patch.object(
                 hotspot_manager, "run_args", return_value=(True, "", "")
             ) as run,
+            patch("time.sleep"),
             patch.object(hotspot_manager, "log"),
         ):
             ok, state = hotspot_manager.ensure_adguard_resilience()
             self.assertTrue(ok)
             self.assertEqual(state, "fallback_activated")
-            dnsm.assert_called_once_with(enable_fallback=True)
+            dnsm.assert_has_calls(
+                [
+                    unittest.mock.call(enable_fallback=False),
+                    unittest.mock.call(enable_fallback=True),
+                ]
+            )
             restart_call = any(
                 call.args[0] == ["sudo", "systemctl", "restart", "dnsmasq"]
                 for call in run.call_args_list

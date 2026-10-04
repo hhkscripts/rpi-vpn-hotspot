@@ -114,11 +114,15 @@ class CountryProfileTests(unittest.TestCase):
             patch.object(hotspot_manager, "wait_for_interface", return_value=True),
             patch.object(hotspot_manager, "apply_vpn_policy", return_value=True),
             patch.object(
+                hotspot_manager, "ensure_adguard_resilience", return_value=(True, "ok")
+            ) as ensure_adg,
+            patch.object(
                 hotspot_manager, "get_host_path", return_value="/tmp/singbox_test.json"
             ),
         ):
             self.assertTrue(hotspot_manager.switch_unlimited_country("direct"))
             upd.assert_called_once_with("UNLIMITED_COUNTRY", "direct")
+            ensure_adg.assert_called_once_with()
 
 
 if __name__ == "__main__":

@@ -214,7 +214,19 @@ def ensure_adguard_resilience() -> tuple[bool, str]:
         return True, "adguard_healthy"
 
     logger(
-        f"AdGuard Home ({container_name}) is stopped or crashed! "
+        f"AdGuard Home ({container_name}) is stopped. Attempting recovery...",
+        "WARN",
+    )
+    cfg_dnsmasq(enable_fallback=False)
+    runner(["sudo", "systemctl", "restart", "dnsmasq"], timeout=15)
+    runner(["docker", "start", container_name], timeout=20)
+    time.sleep(1)
+    if chk_container(container_name):
+        logger(f"AdGuard Home ({container_name}) recovered and active.", "SUCCESS")
+        return True, "adguard_recovered"
+
+    logger(
+        f"AdGuard Home ({container_name}) could not be started! "
         "Activating emergency DNS fallback via dnsmasq...",
         "WARN",
     )

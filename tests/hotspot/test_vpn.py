@@ -29,14 +29,18 @@ class RestartVpnTests(unittest.TestCase):
                 hotspot_manager, "apply_vpn_policy", return_value=True
             ) as policy,
             patch.object(hotspot_manager, "refresh_github_routes") as refresh,
+            patch.object(
+                hotspot_manager, "ensure_adguard_resilience", return_value=(True, "ok")
+            ) as ensure_adg,
             patch.object(hotspot_manager.time, "sleep"),
             patch.object(hotspot_manager, "log"),
         ):
             self.assertTrue(hotspot_manager.restart_vpn())
 
         self.assertEqual(up_attempts, 2)
-        policy.assert_called_once_with()
+        policy.assert_called_once_with("tun0")
         refresh.assert_called_once_with()
+        ensure_adg.assert_called_once_with()
 
     def test_github_refresh_allows_sufficient_runtime(self):
         with (
@@ -101,10 +105,14 @@ class SingboxBackendTests(unittest.TestCase):
                 hotspot_manager, "apply_vpn_policy", return_value=True
             ) as apply_pol,
             patch.object(hotspot_manager, "refresh_github_routes"),
+            patch.object(
+                hotspot_manager, "ensure_adguard_resilience", return_value=(True, "ok")
+            ) as ensure_adg,
             patch.object(hotspot_manager, "log"),
         ):
             self.assertTrue(hotspot_manager.switch_vpn("sing0"))
             apply_pol.assert_called_once_with("sing0")
+            ensure_adg.assert_called_once_with()
 
 
 if __name__ == "__main__":

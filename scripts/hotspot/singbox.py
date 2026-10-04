@@ -223,6 +223,9 @@ def switch_unlimited_country(country: str) -> bool:
         getattr(ctx, "wait_for_interface")("sing0", timeout=10)
         getattr(ctx, "apply_vpn_policy")("sing0")
         getattr(ctx, "refresh_routes", getattr(ctx, "refresh_github_routes"))()
+        ensure_adg = getattr(ctx, "ensure_adguard_resilience", None)
+        if ensure_adg:
+            ensure_adg()
 
     if country not in ["direct", "off", "none"]:
         time.sleep(4)

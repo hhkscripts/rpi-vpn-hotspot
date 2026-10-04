@@ -317,6 +317,14 @@ apply_policy() {
     iptables -C "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -p udp --dport 853 -j REJECT 2>/dev/null || \
         iptables -I "$IPTABLES_CHAIN" 1 -i "$HOTSPOT_IF" -p udp --dport 853 -j REJECT
 
+    # Reject DoH (port 443) bypass to known public DNS IPs so client browsers fall back to local DNS (AdGuard Home)
+    for doh_ip in 8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112; do
+        iptables -C "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -d "$doh_ip" -p tcp --dport 443 -j REJECT 2>/dev/null || \
+            iptables -I "$IPTABLES_CHAIN" 1 -i "$HOTSPOT_IF" -d "$doh_ip" -p tcp --dport 443 -j REJECT
+        iptables -C "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -d "$doh_ip" -p udp --dport 443 -j REJECT 2>/dev/null || \
+            iptables -I "$IPTABLES_CHAIN" 1 -i "$HOTSPOT_IF" -d "$doh_ip" -p udp --dport 443 -j REJECT
+    done
+
     case "$IPV6_LEAK_PROTECTION" in
         drop|1|true|yes)
             ensure_ip6_filter_chain "$IP6TABLES_CHAIN"
@@ -366,6 +374,12 @@ cleanup_policy() {
     remove_ip6_rule FORWARD -i "$HOTSPOT_IF" -j REJECT --reject-with icmp6-adm-prohibited
     remove_filter_chain "$IPTABLES_CHAIN"
     remove_ip6_filter_chain "$IP6TABLES_CHAIN"
+    remove_rule nat PREROUTING -i "$HOTSPOT_IF" -p udp --dport 53 ! -d "$HOTSPOT_IP" -j DNAT --to-destination "$HOTSPOT_IP:53"
+    remove_rule nat PREROUTING -i "$HOTSPOT_IF" -p tcp --dport 53 ! -d "$HOTSPOT_IP" -j DNAT --to-destination "$HOTSPOT_IP:53"
+    for doh_ip in 8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112; do
+        remove_rule filter "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -d "$doh_ip" -p tcp --dport 443 -j REJECT
+        remove_rule filter "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -d "$doh_ip" -p udp --dport 443 -j REJECT
+    done
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT

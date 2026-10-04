@@ -35,20 +35,30 @@ elif [ -d "/opt/goodwifi/adguard/conf" ]; then
     ADGUARD_CONF_DIR="/opt/goodwifi/adguard/conf"
 elif [ -d "/etc/goodwifi/adguard/conf" ]; then
     ADGUARD_CONF_DIR="/etc/goodwifi/adguard/conf"
+elif [ -d "/opt/adguardhome/conf" ]; then
+    ADGUARD_CONF_DIR="/opt/adguardhome/conf"
 elif [ -n "${SUDO_USER:-}" ] && [ -d "/home/$SUDO_USER/Projects/vpn/adguard/conf" ]; then
     ADGUARD_CONF_DIR="/home/$SUDO_USER/Projects/vpn/adguard/conf"
 elif [ -n "${HOME:-}" ] && [ -d "$HOME/Projects/vpn/adguard/conf" ]; then
     ADGUARD_CONF_DIR="$HOME/Projects/vpn/adguard/conf"
+elif [ -d "/home/hhk/Projects/vpn/adguard/conf" ]; then
+    ADGUARD_CONF_DIR="/home/hhk/Projects/vpn/adguard/conf"
+elif [ -d "/home/pi/Projects/vpn/adguard/conf" ]; then
+    ADGUARD_CONF_DIR="/home/pi/Projects/vpn/adguard/conf"
 else
     ADGUARD_CONF_DIR=""
 fi
 
 # Fallback: inspect running docker container mount if available
 if [ -z "$ADGUARD_CONF_DIR" ] && command -v docker >/dev/null 2>&1; then
-    docker_mount="$(docker inspect adguardhome --format '{{range .Mounts}}{{if eq .Destination "/opt/adguardhome/conf"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)"
-    if [ -n "$docker_mount" ] && [ -d "$docker_mount" ]; then
-        ADGUARD_CONF_DIR="$docker_mount"
-    fi
+    for c_name in "${ADGUARD_CONTAINER:-}" "adguardhome" "vpn-adguardhome-1" "vpn_adguardhome_1"; do
+        [ -z "$c_name" ] && continue
+        docker_mount="$(docker inspect "$c_name" --format '{{range .Mounts}}{{if eq .Destination "/opt/adguardhome/conf"}}{{.Source}}{{end}}{{end}}' 2>/dev/null || true)"
+        if [ -n "$docker_mount" ] && [ -d "$docker_mount" ]; then
+            ADGUARD_CONF_DIR="$docker_mount"
+            break
+        fi
+    done
 fi
 
 LOCAL_ROUTES_IPSET="${LOCAL_ROUTES_IPSET:-local_routes}"
@@ -241,11 +251,18 @@ fi
 
 # 4. Restart or reload AdGuard Home if needed
 if [ "$adguard_updated" -eq 1 ]; then
-    if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "adguardhome"; then
-        log "Restarting AdGuard Home container to apply new ipset rules..."
-        docker restart adguardhome >/dev/null 2>&1 || true
-        log "AdGuard Home restarted successfully."
-    elif systemctl is-active --quiet AdGuardHome 2>/dev/null; then
+    adguard_restarted=0
+    for c_name in "${ADGUARD_CONTAINER:-}" "adguardhome" "vpn-adguardhome-1" "vpn_adguardhome_1"; do
+        [ -z "$c_name" ] && continue
+        if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$c_name"; then
+            log "Restarting AdGuard Home container ($c_name) to apply new ipset rules..."
+            docker restart "$c_name" >/dev/null 2>&1 || true
+            log "AdGuard Home restarted successfully."
+            adguard_restarted=1
+            break
+        fi
+    done
+    if [ "$adguard_restarted" -eq 0 ] && systemctl is-active --quiet AdGuardHome 2>/dev/null; then
         systemctl restart AdGuardHome || true
         log "AdGuardHome systemd service restarted."
     fi
