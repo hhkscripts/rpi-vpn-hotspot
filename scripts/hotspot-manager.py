@@ -782,23 +782,87 @@ def get_country_profiles(
         "ng": "Nigeria",
         "ua": "Ukraine",
     }
-    for fname in sorted(os.listdir(profiles_dir)):
-        if not fname.endswith(".ovpn"):
-            continue
-        m = re.search(r"[-_]([a-z]{2,3}(?:-[a-z]{2,3})?)[-_.]", fname.lower())
-        cc = m.group(1) if m else fname.split(".")[0].split("_")[-2].lower()
+    region_map = {
+        "asia": [
+            "ae",
+            "il",
+            "in",
+            "jp",
+            "kr",
+            "sg",
+            "hk",
+            "th",
+            "my",
+            "vn",
+            "id",
+            "ph",
+            "tw",
+        ],
+        "europe": [
+            "at",
+            "ba",
+            "ch",
+            "cz",
+            "de",
+            "dk",
+            "es",
+            "fr",
+            "gr",
+            "hr",
+            "it",
+            "lt",
+            "lux",
+            "lu",
+            "nl",
+            "no",
+            "pl",
+            "se",
+            "ua",
+            "uk",
+            "gb",
+            "fi",
+            "ie",
+        ],
+        "americas": ["br", "ca", "cl", "mx", "us"],
+        "oceania-africa": ["au", "nz", "ng", "za"],
+    }
+    found_files = []
+    for root, _, fnames in os.walk(profiles_dir):
+        for fname in fnames:
+            if fname.endswith(".ovpn"):
+                found_files.append((root, fname))
+
+    for root, fname in sorted(found_files, key=lambda x: x[1]):
+        m = re.match(r"^([a-z]{2,3}(?:-[a-z]{2,3})?)(?:[-_].*)?\.ovpn$", fname.lower())
+        if m:
+            cc = m.group(1)
+        else:
+            m2 = re.search(r"[-_]([a-z]{2,3}(?:-[a-z]{2,3})?)[-_.]", fname.lower())
+            cc = m2.group(1) if m2 else fname.split(".")[0].lower()
+
         base_cc = cc.split("-")[0]
         flag = FLAG_MAP.get(base_cc, "🌐")
         cname = name_map.get(base_cc, base_cc.upper())
         if "-" in cc:
             cname += " (" + cc.split("-")[1].upper() + ")"
 
+        rel_dir = os.path.basename(root).lower()
+        if rel_dir in region_map:
+            region = rel_dir
+        else:
+            region = "other"
+            for r_name, r_ccs in region_map.items():
+                if base_cc in r_ccs:
+                    region = r_name
+                    break
+
         profiles[cc] = {
             "filename": fname,
             "country_code": cc,
             "country_name": cname,
             "flag": flag,
-            "path": os.path.join(profiles_dir, fname),
+            "region": region,
+            "path": os.path.join(root, fname),
         }
     return profiles
 

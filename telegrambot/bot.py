@@ -8,7 +8,7 @@ import json
 import threading
 import html
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import List
+from typing import List, Optional
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -458,23 +458,89 @@ def get_bot_country_profiles() -> dict[str, dict[str, str]]:
             "ng": "Nigeria",
             "ua": "Ukraine",
         }
-        for fname in sorted(os.listdir(profiles_dir)):
-            if not fname.endswith(".ovpn"):
-                continue
-            m = re.search(r"[-_]([a-z]{2,3}(?:-[a-z]{2,3})?)[-_.]", fname.lower())
-            cc = m.group(1) if m else fname.split(".")[0].split("_")[-2].lower()
+        region_map = {
+            "asia": [
+                "ae",
+                "il",
+                "in",
+                "jp",
+                "kr",
+                "sg",
+                "hk",
+                "th",
+                "my",
+                "vn",
+                "id",
+                "ph",
+                "tw",
+            ],
+            "europe": [
+                "at",
+                "ba",
+                "ch",
+                "cz",
+                "de",
+                "dk",
+                "es",
+                "fr",
+                "gr",
+                "hr",
+                "it",
+                "lt",
+                "lux",
+                "lu",
+                "nl",
+                "no",
+                "pl",
+                "se",
+                "ua",
+                "uk",
+                "gb",
+                "fi",
+                "ie",
+            ],
+            "americas": ["br", "ca", "cl", "mx", "us"],
+            "oceania-africa": ["au", "nz", "ng", "za"],
+        }
+        found_files = []
+        for root, _, fnames in os.walk(profiles_dir):
+            for fname in fnames:
+                if fname.endswith(".ovpn"):
+                    found_files.append((root, fname))
+
+        for root, fname in sorted(found_files, key=lambda x: x[1]):
+            m = re.match(
+                r"^([a-z]{2,3}(?:-[a-z]{2,3})?)(?:[-_].*)?\.ovpn$", fname.lower()
+            )
+            if m:
+                cc = m.group(1)
+            else:
+                m2 = re.search(r"[-_]([a-z]{2,3}(?:-[a-z]{2,3})?)[-_.]", fname.lower())
+                cc = m2.group(1) if m2 else fname.split(".")[0].lower()
+
             base_cc = cc.split("-")[0]
             flag = FLAG_MAP.get(base_cc, "🌐")
             cname = name_map.get(base_cc, base_cc.upper())
             if "-" in cc:
                 cname += " (" + cc.split("-")[1].upper() + ")"
 
+            rel_dir = os.path.basename(root).lower()
+            if rel_dir in region_map:
+                region = rel_dir
+            else:
+                region = "other"
+                for r_name, r_ccs in region_map.items():
+                    if base_cc in r_ccs:
+                        region = r_name
+                        break
+
             profiles[cc] = {
                 "filename": fname,
                 "country_code": cc,
                 "country_name": cname,
                 "flag": flag,
-                "path": os.path.join(profiles_dir, fname),
+                "region": region,
+                "path": os.path.join(root, fname),
             }
         if profiles:
             return profiles
@@ -1106,11 +1172,72 @@ async def switch_vpn_command(
         )
 
 
-def make_country_keyboard() -> InlineKeyboardMarkup:
+def make_region_keyboard() -> InlineKeyboardMarkup:
     profiles = get_bot_country_profiles()
+    counts = {"asia": 0, "europe": 0, "americas": 0, "oceania-africa": 0}
+    for p in profiles.values():
+        reg = p.get("region", "other")
+        if reg in counts:
+            counts[reg] += 1
+
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                f"🌏 Asia & Mideast ({counts['asia']})", callback_data="region_asia"
+            ),
+            InlineKeyboardButton(
+                f"🏰 Europe ({counts['europe']})", callback_data="region_europe"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"🌎 Americas ({counts['americas']})",
+                callback_data="region_americas",
+            ),
+            InlineKeyboardButton(
+                f"🌍 Oceania & Africa ({counts['oceania-africa']})",
+                callback_data="region_oceania-africa",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"📋 Show All ({len(profiles)} Countries)",
+                callback_data="region_all",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                "🌐 Direct VPS (No Detour)",
+                callback_data="country_direct",
+                icon_custom_emoji_id=EMOJI_GLOBE,
+            )
+        ],
+        [
+            InlineKeyboardButton("🔙 Back to Menu", callback_data="menu_switch"),
+            InlineKeyboardButton(
+                "Refresh",
+                callback_data="refresh_status",
+                icon_custom_emoji_id=EMOJI_REFRESH,
+            ),
+        ],
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+def make_country_keyboard(
+    selected_region: Optional[str] = None,
+) -> InlineKeyboardMarkup:
+    profiles = get_bot_country_profiles()
+    if selected_region and selected_region != "all":
+        filtered = {
+            cc: p for cc, p in profiles.items() if p.get("region") == selected_region
+        }
+    else:
+        filtered = profiles
+
     keyboard = []
     row = []
-    for cc, p in sorted(profiles.items()):
+    for cc, p in sorted(filtered.items()):
         flag = p.get("flag", FLAG_MAP.get(cc.split("-")[0], "🌐"))
         if "-" in cc:
             sub = cc.split("-")[1].upper()
@@ -1136,7 +1263,7 @@ def make_country_keyboard() -> InlineKeyboardMarkup:
     )
     keyboard.append(
         [
-            InlineKeyboardButton("🔙 Back", callback_data="menu_switch"),
+            InlineKeyboardButton("⬅️ Back to Regions", callback_data="menu_country"),
             InlineKeyboardButton(
                 "Refresh",
                 callback_data="refresh_status",
@@ -1167,13 +1294,14 @@ async def country_menu_command(
     else:
         current_display = current_c.upper()
 
-    reply_markup = make_country_keyboard()
+    reply_markup = make_region_keyboard()
+    hdr = f"<b>{TG_EMOJI_GLOBE} Select Exit Region ({len(profiles)} Countries):</b>"
     text = (
-        f"<b>{TG_EMOJI_GLOBE} Select Exit Country (VPN Unlimited):</b>\n\n"
+        f"{hdr}\n\n"
         f"Active Exit: <b>{current_display}</b>\n\n"
         f"Traffic detours through your VLESS Reality VPS first (bypassing DPI), "
         f"then exits through VPN Unlimited in the selected country.\n\n"
-        f"Choose an exit country below:"
+        f"Choose a region below:"
     )
     if update.message:
         await update.message.reply_text(
@@ -1195,25 +1323,51 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     data = query.data
-    if data == "menu_country":
-        profiles = get_bot_country_profiles()
-        current_c = get_current_unlimited_country()
-        if current_c in profiles:
-            p = profiles[current_c]
-            cname = p.get("country_name", current_c.upper())
-            flag = p.get("flag", "🌐")
-            current_display = f"{flag} {cname} ({current_c.upper()})"
-        elif current_c in ["direct", "off", "none"]:
-            current_display = "🌐 Direct VPS (No Unlimited Detour)"
-        else:
-            current_display = current_c.upper()
+    profiles = get_bot_country_profiles()
+    current_c = get_current_unlimited_country()
+    if current_c in profiles:
+        p = profiles[current_c]
+        cname = p.get("country_name", current_c.upper())
+        flag = p.get("flag", "🌐")
+        current_display = f"{flag} {cname} ({current_c.upper()})"
+    elif current_c in ["direct", "off", "none"]:
+        current_display = "🌐 Direct VPS (No Unlimited Detour)"
+    else:
+        current_display = current_c.upper()
 
-        reply_markup = make_country_keyboard()
+    if data == "menu_country":
+        reply_markup = make_region_keyboard()
+        hdr = f"<b>{TG_EMOJI_GLOBE} Select Exit Region ({len(profiles)} Countries):</b>"
         text = (
-            f"<b>{TG_EMOJI_GLOBE} Select Exit Country (VPN Unlimited):</b>\n\n"
+            f"{hdr}\n\n"
             f"Active Exit: <b>{current_display}</b>\n\n"
             f"Traffic detours through your VLESS Reality VPS first (bypassing DPI), "
             f"then exits through VPN Unlimited in the selected country.\n\n"
+            f"Choose a region below:"
+        )
+        try:
+            await query.edit_message_text(
+                text, reply_markup=reply_markup, parse_mode="HTML"
+            )
+            await query.answer()
+        except Exception:
+            pass
+        return
+
+    if data.startswith("region_"):
+        reg = data.replace("region_", "")
+        region_titles = {
+            "asia": "🌏 Asia & Mideast",
+            "europe": "🏰 Europe",
+            "americas": "🌎 Americas",
+            "oceania-africa": "🌍 Oceania & Africa",
+            "all": "📋 All Countries",
+        }
+        title = region_titles.get(reg, reg.capitalize())
+        reply_markup = make_country_keyboard(selected_region=reg)
+        text = (
+            f"<b>{title}:</b>\n\n"
+            f"Active Exit: <b>{current_display}</b>\n\n"
             f"Choose an exit country below:"
         )
         try:
