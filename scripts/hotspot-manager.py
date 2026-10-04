@@ -1036,12 +1036,42 @@ def wait_for_interface(interface: str, timeout: int = 60) -> bool:
 
 def restart_singbox() -> bool:
     log("Restarting Sing-box Reality (sing0)...")
-    run_args(["sudo", "systemctl", "restart", "xray", "sing-box"], timeout=30)
-    if wait_for_interface("sing0", timeout=10):
+    run_args(["sudo", "systemctl", "start", "xray"], timeout=15)
+    run_args(["sudo", "systemctl", "restart", "sing-box"], timeout=25)
+    if wait_for_interface("sing0", timeout=15):
         log("Sing-box Reality connected", "SUCCESS")
         policy_ok = apply_vpn_policy("sing0")
         refresh_github_routes()
         return policy_ok
+
+    log(
+        "Sing-box restart timed out. Attempting auto-recovery to Direct VLESS...",
+        "WARN",
+    )
+    try:
+        cfg = generate_singbox_config(None)
+        config_path = get_host_path("/etc/sing-box/config.json")
+        import tempfile
+
+        with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+            json.dump(cfg, tf, indent=2)
+            tmp_name = tf.name
+        run_args(["sudo", "cp", tmp_name, config_path])
+        run_args(["sudo", "chmod", "0644", config_path])
+        os.unlink(tmp_name)
+        update_goodwifi_conf("UNLIMITED_COUNTRY", "direct")
+        run_args(["sudo", "systemctl", "restart", "sing-box"], timeout=25)
+        if wait_for_interface("sing0", timeout=15):
+            log(
+                "Auto-recovery successful: Sing-box Reality connected (Direct)",
+                "SUCCESS",
+            )
+            policy_ok = apply_vpn_policy("sing0")
+            refresh_github_routes()
+            return policy_ok
+    except Exception as e:
+        log(f"Auto-recovery failed: {e}", "ERROR")
+
     log("Sing-box Reality restart failed", "ERROR")
     return False
 
