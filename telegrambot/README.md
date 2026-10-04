@@ -28,10 +28,16 @@ Required:
 TELEGRAM_BOT_TOKEN=<bot-token>
 ```
 
-Optional:
+Optional (Security & Configuration):
 
 ```text
-TELEGRAM_ALLOWED_USERS=<telegram-user-id>
+# Security (Default-Deny): Comma-separated list of authorized Telegram user IDs
+TELEGRAM_ALLOWED_USERS=12345678,87654321
+
+# Development override: set to true to allow all users (NOT recommended for production)
+TELEGRAM_ALLOW_ALL_USERS=false
+
+# Docker health server
 BOT_HEALTH_HOST=0.0.0.0
 BOT_HEALTH_PORT=8081
 BOT_SERVICE_NAME=mpxraspberrypibot
@@ -87,3 +93,44 @@ sudo /usr/local/bin/hotspot-manager.py --status
 ```
 
 If Telegram replies but the hotspot action fails, fix the host-side GoodWifi setup first from the main [README](../README.md).
+
+## Modular Architecture
+
+The bot codebase follows a granular, single-responsibility structure with small modules:
+
+```text
+telegrambot/
+├── bot.py                  # Main entrypoint & handler registration (~120 lines)
+├── constants/
+│   ├── emojis.py           # Custom emoji IDs and HTML tags
+│   ├── flags.py            # Country flags mapping
+│   └── profiles.py         # Country profile discovery & region metadata
+├── core/
+│   ├── config.py           # Configuration & user authorization
+│   ├── health.py           # Docker HTTP health check server
+│   └── runner.py           # nsenter host execution & state readers
+├── ui/
+│   ├── main_keyboard.py    # Reply keyboard with custom emojis
+│   ├── status_keyboards.py # Inline status & action buttons
+│   ├── vpn_keyboards.py    # VPN switcher buttons
+│   ├── country_keyboards.py# Region & country selection grids
+│   ├── adguard_keyboards.py# AdGuard toggle buttons
+│   └── ipv6_keyboards.py   # IPv6 leak protection buttons
+└── handlers/
+    ├── common.py           # /start and /help commands
+    ├── status.py           # /status command & refresh callback
+    ├── vpn.py              # VPN backend switching handlers
+    ├── country.py          # Exit country switching handlers
+    ├── adguard.py          # AdGuard DNS toggle handlers
+    ├── ipv6.py             # IPv6 mode switching handlers
+    ├── maintenance.py      # Restart, fix, and clients handlers
+    └── text_router.py      # Plain text message routing
+```
+
+## Running Unit Tests
+
+To run the unit tests for the bot:
+
+```bash
+python3 -m unittest -v tests/test_telegram_bot.py
+```

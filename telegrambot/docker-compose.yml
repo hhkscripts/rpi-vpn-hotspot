@@ -16,6 +16,7 @@ services:
       - TZ=Asia/Yangon
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_ALLOWED_USERS=${TELEGRAM_ALLOWED_USERS}
+      - TELEGRAM_ALLOW_ALL_USERS=${TELEGRAM_ALLOW_ALL_USERS:-false}
       - BOT_HEALTH_HOST=0.0.0.0
       - BOT_HEALTH_PORT=8081
       - BOT_SERVICE_NAME=mpxraspberrypibot
@@ -24,8 +25,7 @@ services:
       - /var/run/dbus:/var/run/dbus
       - /run/systemd:/run/systemd
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./hotspot-manager.py:/app/hotspot-manager.py:ro
-      - ./bot.py:/app/bot.py:ro
+      - ./:/app:ro
       - /etc/hostapd:/etc/hostapd
       - /etc/dnsmasq.d:/etc/dnsmasq.d
       - /run/xtables.lock:/run/xtables.lock

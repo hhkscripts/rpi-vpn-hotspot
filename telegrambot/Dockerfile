@@ -22,9 +22,9 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy bot script (not needed since we run from host, but kept for reference)
-COPY bot.py .
-COPY hotspot-manager.py .
+# Copy bot application
+COPY . /app
+WORKDIR /app
 
 # Run the bot (default, overridden by docker-compose.yml)
 CMD ["python", "bot.py"]

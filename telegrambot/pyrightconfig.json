@@ -1,6 +1,15 @@
 {
-  "include": ["bot.py"],
-  "exclude": [".venv", "hotspot-manager.py"],
+  "include": [
+    "bot.py",
+    "constants",
+    "core",
+    "ui",
+    "handlers"
+  ],
+  "exclude": [
+    ".venv",
+    "venv"
+  ],
   "venvPath": ".",
   "venv": ".venv",
   "pythonVersion": "3.11",
