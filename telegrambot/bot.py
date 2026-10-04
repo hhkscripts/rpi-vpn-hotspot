@@ -1105,12 +1105,15 @@ def make_country_keyboard() -> InlineKeyboardMarkup:
     keyboard = []
     row = []
     for cc, p in sorted(profiles.items()):
-        flag = p.get("flag", FLAG_MAP.get(cc, "🌐"))
-        cname = p.get("country_name", cc.upper())
-        label = f"{flag} {cname}"
+        flag = p.get("flag", FLAG_MAP.get(cc.split("-")[0], "🌐"))
+        if "-" in cc:
+            sub = cc.split("-")[1].upper()
+            label = f"{flag} {sub}"
+        else:
+            label = flag
         btn = InlineKeyboardButton(label, callback_data=f"country_{cc}")
         row.append(btn)
-        if len(row) == 2:
+        if len(row) == 4:
             keyboard.append(row)
             row = []
     if row:
@@ -1128,7 +1131,7 @@ def make_country_keyboard() -> InlineKeyboardMarkup:
     keyboard.append(
         [
             InlineKeyboardButton(
-                "🔙 Back to VPN Backends", callback_data="menu_switch"
+                "🔙 Back", callback_data="menu_switch"
             ),
             InlineKeyboardButton(
                 "Refresh",
