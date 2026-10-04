@@ -710,23 +710,25 @@ def switch_vpn(target: str) -> bool:
         return ok
 
 
-def get_country_profiles() -> dict[str, dict[str, str]]:
+def get_country_profiles(
+    profiles_dir: Optional[str] = None,
+) -> dict[str, dict[str, str]]:
     """Scan profiles folder for WireGuard (.conf) and OpenVPN (.ovpn) files."""
-    candidates = [
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "profiles"),
-        "/host/etc/goodwifi/profiles",
-        "/etc/goodwifi/profiles",
-        "/app/profiles",
-        os.path.join(os.getcwd(), "profiles"),
-        "profiles",
-    ]
-    profiles_dir = None
-    for c in candidates:
-        if os.path.exists(c) and os.path.isdir(c):
-            profiles_dir = c
-            break
-
     if not profiles_dir:
+        candidates = [
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "profiles"),
+            "/host/etc/goodwifi/profiles",
+            "/etc/goodwifi/profiles",
+            "/app/profiles",
+            os.path.join(os.getcwd(), "profiles"),
+            "profiles",
+        ]
+        for c in candidates:
+            if os.path.exists(c) and os.path.isdir(c):
+                profiles_dir = c
+                break
+
+    if not profiles_dir or not os.path.exists(profiles_dir):
         return {}
 
     profiles = {}

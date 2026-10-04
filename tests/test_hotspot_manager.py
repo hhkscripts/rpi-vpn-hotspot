@@ -210,13 +210,18 @@ class SingboxBackendTests(unittest.TestCase):
 
 class CountryProfileTests(unittest.TestCase):
     def test_get_country_profiles(self):
-        profs = hotspot_manager.get_country_profiles()
-        self.assertIn("sg", profs)
-        self.assertIn("jp", profs)
-        self.assertEqual(profs["sg"]["flag"], "🇸🇬")
-        self.assertEqual(profs["sg"]["country_name"], "Singapore")
-        self.assertEqual(profs["jp"]["flag"], "🇯🇵")
-        self.assertEqual(profs["jp"]["country_name"], "Japan")
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            Path(tmpdir, "user_sg_vpn.ovpn").touch()
+            Path(tmpdir, "user_jp_vpn.ovpn").touch()
+            profs = hotspot_manager.get_country_profiles(tmpdir)
+            self.assertIn("sg", profs)
+            self.assertIn("jp", profs)
+            self.assertEqual(profs["sg"]["flag"], "🇸🇬")
+            self.assertEqual(profs["sg"]["country_name"], "Singapore")
+            self.assertEqual(profs["jp"]["flag"], "🇯🇵")
+            self.assertEqual(profs["jp"]["country_name"], "Japan")
 
     def test_get_active_vpn_interface_sing0_with_country(self):
         with (
