@@ -30,19 +30,14 @@ class TestTelegramBotUI(unittest.TestCase):
         self.assertIn("Country", button_texts)
         self.assertIn("Help", button_texts)
 
-    def test_status_keyboard_sing0_active(self):
+    def test_status_keyboard_structure(self):
         kb = make_status_keyboard("Connected to sing0 (VLESS Reality)")
         callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-        self.assertIn("switch_awg0", callbacks)
-        self.assertIn("menu_ipv6", callbacks)
-        self.assertIn("menu_adguard", callbacks)
-        self.assertIn("refresh_status", callbacks)
+        self.assertIn("menu_switch", callbacks)
         self.assertIn("menu_country", callbacks)
-
-    def test_status_keyboard_awg0_active(self):
-        kb = make_status_keyboard("Connected to awg0 (AmneziaWG)")
-        callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row]
-        self.assertIn("switch_sing0", callbacks)
+        self.assertIn("menu_adguard", callbacks)
+        self.assertIn("menu_ipv6", callbacks)
+        self.assertIn("refresh_status", callbacks)
 
     def test_switch_vpn_keyboard(self):
         kb = make_switch_vpn_keyboard()
