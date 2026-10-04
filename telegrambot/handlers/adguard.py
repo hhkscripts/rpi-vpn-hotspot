@@ -1,6 +1,7 @@
 """AdGuard Home DNS protection command and callback handlers."""
 
 import asyncio
+import os
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -32,13 +33,14 @@ async def adguard_menu_command(
         else "🔴 Disabled (Fallback to dnsmasq)"
     )
     reply_markup = make_adguard_keyboard(is_enabled)
+    dns_ip = os.getenv("HOTSPOT_IP", "10.42.0.1")
 
     text = (
         f"<b>{TG_EMOJI_ADGUARD} AdGuard Home DNS Protection</b>\n\n"
         f"Current Status: <b>{state_str}</b>\n\n"
         f"• <b>Turn ON</b>: AdGuard Home filters DNS and blocks ads.\n"
         f"• <b>Turn OFF</b>: AdGuard Home is stopped; dnsmasq resolves "
-        f"upstream DNS directly on <code>10.42.0.1:53</code>.\n\n"
+        f"upstream DNS directly on <code>{dns_ip}:53</code>.\n\n"
         f"Choose an action below:"
     )
     if update.message:
@@ -70,12 +72,13 @@ async def adguard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             else "🔴 Disabled (Fallback to dnsmasq)"
         )
         reply_markup = make_adguard_keyboard(is_enabled)
+        dns_ip = os.getenv("HOTSPOT_IP", "10.42.0.1")
         text = (
             f"<b>{TG_EMOJI_ADGUARD} AdGuard Home DNS Protection</b>\n\n"
             f"Current Status: <b>{state_str}</b>\n\n"
             f"• <b>Turn ON</b>: AdGuard Home filters DNS and blocks ads.\n"
             f"• <b>Turn OFF</b>: AdGuard Home is stopped; dnsmasq resolves "
-            f"upstream DNS directly on <code>10.42.0.1:53</code>.\n\n"
+            f"upstream DNS directly on <code>{dns_ip}:53</code>.\n\n"
             f"Choose an action below:"
         )
         try:

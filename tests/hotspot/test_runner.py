@@ -35,5 +35,42 @@ class DockerServiceTests(unittest.TestCase):
             self.assertIsNone(hotspot_manager.check_docker_container("nonexistent"))
 
 
+class StatusChecksTests(unittest.TestCase):
+    def test_check_dns_custom_domain_and_fallback(self):
+        with (
+            patch.dict(
+                hotspot_manager.CONFIG,
+                {"dns_test_domain": "custom-domain.local", "hotspot_ip": "10.50.0.1"},
+            ),
+            patch.object(
+                hotspot_manager,
+                "run_args",
+                side_effect=[(False, "", "error"), (True, "Address: 1.1.1.1", "")],
+            ) as mock_run,
+        ):
+            self.assertTrue(hotspot_manager.check_dns())
+            calls = [c[0][0] for c in mock_run.call_args_list]
+            self.assertEqual(calls[0], ["nslookup", "custom-domain.local", "10.50.0.1"])
+            self.assertEqual(calls[1], ["nslookup", "cloudflare.com", "10.50.0.1"])
+
+    def test_check_clients_interface_fallback(self):
+        with (
+            patch.dict(hotspot_manager.CONFIG, {"interface_wlan": "wlan0"}),
+            patch.object(
+                hotspot_manager,
+                "run_args",
+                side_effect=[
+                    (False, "", "No such device"),
+                    (True, "Station aa:bb:cc:dd:ee:ff (on wlan1)\n", ""),
+                ],
+            ) as mock_run,
+        ):
+            count = hotspot_manager.check_clients()
+            self.assertEqual(count, 1)
+            calls = [c[0][0] for c in mock_run.call_args_list]
+            self.assertEqual(calls[0], ["iw", "dev", "wlan0", "station", "dump"])
+            self.assertEqual(calls[1], ["iw", "dev", "wlan1", "station", "dump"])
+
+
 if __name__ == "__main__":
     unittest.main()

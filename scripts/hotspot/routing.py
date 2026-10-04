@@ -32,22 +32,27 @@ def apply_vpn_policy(interface: Optional[str] = None) -> bool:
         logger(f"VPN policy apply failed: {detail}", "ERROR")
         return False
 
-    route_ok, route_out, _ = runner(["ip", "route", "show", "table", "100"])
-    rule_ok, rule_out, _ = runner(["ip", "rule", "show"])
+    table = str(cfg.get("routing_table", 100))
     subnet = cfg.get("hotspot_subnet", "10.42.0.0/24")
+    route_ok, route_out, _ = runner(["ip", "route", "show", "table", table])
+    rule_ok, rule_out, _ = runner(["ip", "rule", "show"])
     policy_ok = (
         route_ok
         and (f"default dev {interface}" in route_out or "default dev" in route_out)
         and rule_ok
         and (
-            f"from {subnet} lookup 100" in rule_out
+            f"from {subnet} lookup {table}" in rule_out
             or f"from {subnet} lookup github_vpn" in rule_out
+            or f"from 10.42.0.0/24 lookup {table}" in rule_out
             or "from 10.42.0.0/24 lookup 100" in rule_out
             or "from 10.42.0.0/24 lookup github_vpn" in rule_out
         )
     )
     if not policy_ok:
-        logger("VPN policy apply did not install GoodWifi table 100 routing", "ERROR")
+        logger(
+            f"VPN policy apply did not install GoodWifi table {table} routing",
+            "ERROR",
+        )
         return False
     return True
 

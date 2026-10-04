@@ -42,8 +42,13 @@ def check_dns() -> bool:
     ctx = Context.get()
     cfg = getattr(ctx, "CONFIG", CONFIG)
     runner = getattr(ctx, "run_args", run_args)
-    ok, _, _ = runner(["nslookup", "google.com", cfg.get("hotspot_ip", "10.42.0.1")])
-    return ok
+    test_domains = [cfg.get("dns_test_domain", "google.com"), "cloudflare.com"]
+    dns_ip = cfg.get("hotspot_ip", "10.42.0.1")
+    for domain in dict.fromkeys(d for d in test_domains if d):
+        ok, _, _ = runner(["nslookup", domain, dns_ip])
+        if ok:
+            return True
+    return False
 
 
 def check_ping(target: Optional[str] = None) -> PingStatus:
@@ -93,9 +98,11 @@ def check_clients() -> int:
     cfg = getattr(ctx, "CONFIG", CONFIG)
     runner = getattr(ctx, "run_args", run_args)
     wlan = cfg.get("interface_wlan", "wlan0")
-    ok, out, _ = runner(["iw", "dev", wlan, "station", "dump"])
-    if ok:
-        return sum(1 for line in out.splitlines() if line.startswith("Station "))
+    candidates = [wlan, "wlan1", "ap0"]
+    for dev in dict.fromkeys(c for c in candidates if c):
+        ok, out, _ = runner(["iw", "dev", dev, "station", "dump"])
+        if ok:
+            return sum(1 for line in out.splitlines() if line.startswith("Station "))
     return 0
 
 
@@ -103,8 +110,13 @@ def check_hotspot() -> bool:
     ctx = Context.get()
     cfg = getattr(ctx, "CONFIG", CONFIG)
     runner = getattr(ctx, "run_args", run_args)
-    ok, out, _ = runner(["iw", "dev", cfg.get("interface_wlan", "wlan0"), "info"])
-    return ok and any(line.strip() == "type AP" for line in out.splitlines())
+    wlan = cfg.get("interface_wlan", "wlan0")
+    candidates = [wlan, "wlan1", "ap0"]
+    for dev in dict.fromkeys(c for c in candidates if c):
+        ok, out, _ = runner(["iw", "dev", dev, "info"])
+        if ok and any(line.strip() == "type AP" for line in out.splitlines()):
+            return True
+    return False
 
 
 def get_hotspot_ssid() -> str:

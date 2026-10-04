@@ -85,6 +85,20 @@ class TestDynamicEmojis(unittest.TestCase):
         self.assertEqual(res.get("🇯🇵"), "99998888")
         mock_save.assert_called_once()
 
+    def test_format_tg_emoji_fallback(self):
+        from telegrambot.constants.emojis import format_tg_emoji
+
+        # Normal case
+        tag = format_tg_emoji("123456", "🐉")
+        self.assertEqual(tag, '<tg-emoji emoji-id="123456">🐉</tg-emoji>')
+
+        # Disabled case
+        with patch.dict("os.environ", {"DISABLE_CUSTOM_EMOJIS": "1"}):
+            self.assertEqual(format_tg_emoji("123456", "🐉"), "🐉")
+
+        # Empty id case
+        self.assertEqual(format_tg_emoji("", "🐉"), "🐉")
+
 
 if __name__ == "__main__":
     unittest.main()

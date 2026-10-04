@@ -17,6 +17,8 @@ class Config(TypedDict, total=False):
     log_file: str
     ping_target: str
     hotspot_subnet: str
+    routing_table: int
+    dns_test_domain: str
     adguard_container: str
     telegram_container: str
     adguard_enabled: bool
@@ -60,11 +62,13 @@ CONFIG: Config = {
     "vpn_name": "",
     "default_hotspot_ssid": "GoodWifi",
     "hostapd_conf": "/etc/hostapd/hostapd.conf",
-    "hotspot_ip": "10.42.0.1",
-    "interface_wlan": "wlan0",
+    "hotspot_ip": os.getenv("HOTSPOT_IP", "10.42.0.1"),
+    "interface_wlan": os.getenv("HOTSPOT_IFACE", "wlan0"),
     "log_file": "/var/log/hotspot-manager.log",
-    "ping_target": "8.8.8.8",
-    "hotspot_subnet": "10.42.0.0/24",
+    "ping_target": os.getenv("PING_TARGET", "8.8.8.8"),
+    "hotspot_subnet": os.getenv("HOTSPOT_SUBNET", "10.42.0.0/24"),
+    "routing_table": int(os.getenv("HOTSPOT_ROUTING_TABLE", "100")),
+    "dns_test_domain": os.getenv("DNS_TEST_DOMAIN", "google.com"),
     "adguard_container": os.getenv("ADGUARD_CONTAINER", "adguardhome"),
     "telegram_container": os.getenv("TELEGRAM_CONTAINER", "mpxraspberrypibot"),
     "adguard_enabled": True,
@@ -75,23 +79,31 @@ APPLY_ROUTE_SCRIPT = "/usr/local/bin/apply-routes.sh"
 POLICY_SCRIPT = "/etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy"
 GOODWIFI_CONF = "/etc/goodwifi/goodwifi.conf"
 
+
+def _get_tg_emoji(key: str, default_id: str, char: str) -> str:
+    eid = os.getenv(f"TG_EMOJI_{key.upper()}", default_id)
+    if os.getenv("DISABLE_CUSTOM_EMOJIS", "0") == "1" or not eid:
+        return char
+    return f'<tg-emoji emoji-id="{eid}">{char}</tg-emoji>'
+
+
 CUSTOM_EMOJIS = {
-    "signal": '<tg-emoji emoji-id="6127157759872868272">📡</tg-emoji>',
-    "tools": '<tg-emoji emoji-id="6141134446742478627">🔧</tg-emoji>',
-    "check": '<tg-emoji emoji-id="6114156013399579882">✅</tg-emoji>',
-    "lock": '<tg-emoji emoji-id="6059947491695008618">🔒</tg-emoji>',
-    "stats": '<tg-emoji emoji-id="6143449494244563627">📶</tg-emoji>',
-    "globe": '<tg-emoji emoji-id="6057443049020071219">🌐</tg-emoji>',
-    "cross": '<tg-emoji emoji-id="6111658378247806635">❌</tg-emoji>',
-    "ping": '<tg-emoji emoji-id="6060045064762039982">⏲</tg-emoji>',
-    "wireguard": '<tg-emoji emoji-id="6165512058344318397">🐉</tg-emoji>',
-    "openvpn": '<tg-emoji emoji-id="6165724869678866601">🔐</tg-emoji>',
-    "amneziawg": '<tg-emoji emoji-id="6165519909544534378">🛡</tg-emoji>',
-    "vless": '<tg-emoji emoji-id="6197318808022032017">🛡</tg-emoji>',
-    "singbox": '<tg-emoji emoji-id="6197318808022032017">🛡</tg-emoji>',
-    "raspberrypi": '<tg-emoji emoji-id="6165792622787961093">🍓</tg-emoji>',
-    "adguard": '<tg-emoji emoji-id="6165657271188594962">🛡</tg-emoji>',
-    "ipv6": '<tg-emoji emoji-id="6165466570345686935">🔒</tg-emoji>',
+    "signal": _get_tg_emoji("signal", "6127157759872868272", "📡"),
+    "tools": _get_tg_emoji("tools", "6141134446742478627", "🔧"),
+    "check": _get_tg_emoji("check", "6114156013399579882", "✅"),
+    "lock": _get_tg_emoji("lock", "6059947491695008618", "🔒"),
+    "stats": _get_tg_emoji("stats", "6143449494244563627", "📶"),
+    "globe": _get_tg_emoji("globe", "6057443049020071219", "🌐"),
+    "cross": _get_tg_emoji("cross", "6111658378247806635", "❌"),
+    "ping": _get_tg_emoji("ping", "6060045064762039982", "⏲"),
+    "wireguard": _get_tg_emoji("wireguard", "6165512058344318397", "🐉"),
+    "openvpn": _get_tg_emoji("openvpn", "6165724869678866601", "🔐"),
+    "amneziawg": _get_tg_emoji("amneziawg", "6165519909544534378", "🛡"),
+    "vless": _get_tg_emoji("vless", "6197318808022032017", "🛡"),
+    "singbox": _get_tg_emoji("singbox", "6197318808022032017", "🛡"),
+    "raspberrypi": _get_tg_emoji("raspberrypi", "6165792622787961093", "🍓"),
+    "adguard": _get_tg_emoji("adguard", "6165657271188594962", "🛡"),
+    "ipv6": _get_tg_emoji("ipv6", "6165466570345686935", "🔒"),
 }
 
 EMOJI_SIGNAL = CUSTOM_EMOJIS["signal"]

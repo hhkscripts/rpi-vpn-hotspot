@@ -3,6 +3,7 @@
 VPN interface detection, NMCLI connections, and network interface queries.
 """
 
+import os
 import time
 
 from .constants import CONFIG
@@ -16,8 +17,10 @@ def get_active_vpn_interface() -> tuple[str, str]:
     runner = getattr(ctx, "run_args", run_args)
     vless_name_fn = getattr(ctx, "get_vless_display_name", get_vless_display_name)
     get_backend = getattr(ctx, "get_configured_backend", get_configured_backend)
+    cfg = getattr(ctx, "CONFIG", CONFIG)
+    table = str(cfg.get("routing_table", 100))
 
-    ok, out, _ = runner(["ip", "route", "show", "table", "100"])
+    ok, out, _ = runner(["ip", "route", "show", "table", table])
     if ok:
         for line in out.splitlines():
             if line.startswith("default dev "):
@@ -154,9 +157,17 @@ def check_vpn_external_ip() -> tuple[bool, str]:
     runner = getattr(ctx, "run_args", run_args)
     get_iface = getattr(ctx, "get_active_vpn_interface", get_active_vpn_interface)
 
+    echo_env = os.getenv("IP_ECHO_SERVICES", "")
+    custom_services = [s.strip() for s in echo_env.split(",") if s.strip()]
+    urls = custom_services or [
+        "https://api.ipify.org",
+        "https://ifconfig.me",
+        "https://icanhazip.com",
+    ]
+
     iface, _ = get_iface()
     for candidate in [iface, "sing0", "awg0", "wg0", "tun0"]:
-        for url in ["https://api.ipify.org", "https://ifconfig.me"]:
+        for url in urls:
             ok, out, _ = runner(
                 [
                     "curl",
