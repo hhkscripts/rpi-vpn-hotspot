@@ -79,9 +79,13 @@ log() {
 }
 
 DRY_RUN=0
-if [ "${1:-}" = "--dry-run" ] || [ "${1:-}" = "--check" ]; then
-    DRY_RUN=1
-fi
+FORCE_RELOAD="${FORCE_RELOAD:-0}"
+for arg in "$@"; do
+    case "$arg" in
+        --dry-run|--check) DRY_RUN=1 ;;
+        --reload|--force-reload|-r) FORCE_RELOAD=1 ;;
+    esac
+done
 
 if [ "$DRY_RUN" -eq 0 ] && [ "$(id -u)" -ne 0 ]; then
     log "Run as root: sudo $0 (or run with --dry-run to test syntax without root)"
@@ -275,12 +279,27 @@ if [ -n "$ADGUARD_CONF_DIR" ] && [ -d "$ADGUARD_CONF_DIR" ]; then
 fi
 
 # 4. Restart or reload AdGuard Home if needed
-if [ "$adguard_updated" -eq 1 ]; then
+if [ "$adguard_updated" -eq 0 ] && [ "$FORCE_RELOAD" -eq 0 ] && [ -n "${target_ipset_conf:-}" ] && [ -f "$target_ipset_conf" ]; then
+    for c_name in "${ADGUARD_CONTAINER:-}" "adguardhome" "vpn-adguardhome-1" "vpn_adguardhome_1"; do
+        [ -z "$c_name" ] && continue
+        if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$c_name"; then
+            started_epoch="$(docker inspect --format '{{.State.StartedAt}}' "$c_name" 2>/dev/null | xargs -I{} date -d {} +%s 2>/dev/null || echo 0)"
+            file_epoch="$(stat -c %Y "$target_ipset_conf" 2>/dev/null || echo 0)"
+            if [ "$file_epoch" -gt "$started_epoch" ]; then
+                adguard_updated=1
+                log "Detected newer ipset.conf than running container; reloading AdGuard Home."
+                break
+            fi
+        fi
+    done
+fi
+
+if [ "$adguard_updated" -eq 1 ] || [ "$FORCE_RELOAD" -eq 1 ]; then
     adguard_restarted=0
     for c_name in "${ADGUARD_CONTAINER:-}" "adguardhome" "vpn-adguardhome-1" "vpn_adguardhome_1"; do
         [ -z "$c_name" ] && continue
         if command -v docker >/dev/null 2>&1 && docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$c_name"; then
-            log "Restarting AdGuard Home container ($c_name) to apply new ipset rules..."
+            log "Restarting AdGuard Home container ($c_name) to apply ipset rules..."
             docker restart "$c_name" >/dev/null 2>&1 || true
             log "AdGuard Home restarted successfully."
             adguard_restarted=1
