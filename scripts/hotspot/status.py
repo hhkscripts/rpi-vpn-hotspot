@@ -100,10 +100,16 @@ def check_clients() -> int:
     wlan = cfg.get("interface_wlan", "wlan0")
     candidates = [wlan, "wlan1", "ap0"]
     for dev in dict.fromkeys(c for c in candidates if c):
-        for cmd in [["sudo", "iw", "dev", dev, "station", "dump"], ["/usr/sbin/iw", "dev", dev, "station", "dump"], ["iw", "dev", dev, "station", "dump"]]:
+        for cmd in [
+            ["sudo", "iw", "dev", dev, "station", "dump"],
+            ["/usr/sbin/iw", "dev", dev, "station", "dump"],
+            ["iw", "dev", dev, "station", "dump"],
+        ]:
             ok, out, _ = runner(cmd)
             if ok:
-                return sum(1 for line in out.splitlines() if line.startswith("Station "))
+                return sum(
+                    1 for line in out.splitlines() if line.startswith("Station ")
+                )
     return 0
 
 
@@ -114,7 +120,11 @@ def check_hotspot() -> bool:
     wlan = cfg.get("interface_wlan", "wlan0")
     candidates = [wlan, "wlan1", "ap0"]
     for dev in dict.fromkeys(c for c in candidates if c):
-        for cmd in [["sudo", "iw", "dev", dev, "info"], ["/usr/sbin/iw", "dev", dev, "info"], ["iw", "dev", dev, "info"]]:
+        for cmd in [
+            ["sudo", "iw", "dev", dev, "info"],
+            ["/usr/sbin/iw", "dev", dev, "info"],
+            ["iw", "dev", dev, "info"],
+        ]:
             ok, out, _ = runner(cmd)
             if ok and any(line.strip() == "type AP" for line in out.splitlines()):
                 return True

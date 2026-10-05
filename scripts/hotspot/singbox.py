@@ -29,9 +29,15 @@ def _parse_ovpn_endpoint(content: str) -> dict:
     ca, cert, key = _tag("ca"), _tag("cert"), _tag("key")
     remote_m = re.search(r"^\s*remote\s+([^\s]+)(?:\s+(\d+))?", content, re.MULTILINE)
     server_host = remote_m.group(1).strip() if remote_m else "127.0.0.1"
-    server_port = int(remote_m.group(2)) if (remote_m and remote_m.group(2)) else int(_opt(r"^\s*port\s+(\d+)", "1194"))
+    server_port = (
+        int(remote_m.group(2))
+        if (remote_m and remote_m.group(2))
+        else int(_opt(r"^\s*port\s+(\d+)", "1194"))
+    )
     cipher = _opt(r"^\s*cipher\s+([^\s]+)")
-    data_ciphers = list(dict.fromkeys([c for c in [cipher, "AES-256-GCM", "AES-256-CBC"] if c]))
+    data_ciphers = list(
+        dict.fromkeys([c for c in [cipher, "AES-256-GCM", "AES-256-CBC"] if c])
+    )
     auth_val = _opt(r"^\s*auth\s+([^\s]+)", "SHA512").upper()
 
     tls_name = (
@@ -40,7 +46,11 @@ def _parse_ovpn_endpoint(content: str) -> dict:
         or _opt(r'^\s*(?:verify-x509-name|tls-remote)\s+["\']?([^"\'\s]+)["\']?')
     )
     if not tls_name and re.search(r"[a-zA-Z]", server_host):
-        tls_name = "server.ironnodes.com" if "vpnunlimitedapp.com" in server_host.lower() else server_host
+        tls_name = (
+            "server.ironnodes.com"
+            if "vpnunlimitedapp.com" in server_host.lower()
+            else server_host
+        )
 
     server_ip = server_host
     try:
@@ -50,7 +60,11 @@ def _parse_ovpn_endpoint(content: str) -> dict:
             text=True,
             timeout=3,
         )
-        ips = [l.strip() for l in res.stdout.splitlines() if l.strip() and not l.startswith(";")]
+        ips = [
+            line.strip()
+            for line in res.stdout.splitlines()
+            if line.strip() and not line.startswith(";")
+        ]
         if ips:
             server_ip = ips[0]
     except Exception:
@@ -117,14 +131,23 @@ def _parse_wg_endpoint(profile_path: str) -> dict:
     return ep
 
 
+def _write_json_config(path: str, data: dict, runner) -> None:
+    with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+        json.dump(data, tf, indent=2)
+        tmp = tf.name
+    runner(["sudo", "mkdir", "-p", os.path.dirname(path)])
+    runner(["sudo", "cp", tmp, path])
+    runner(["sudo", "chmod", "0644", path])
+    os.unlink(tmp)
+
+
 def generate_singbox_config(profile_path: Optional[str] = None) -> dict:
     """Generate Sing-box config with WireGuard or OpenVPN endpoint detour via Xray."""
     ctx = Context.get()
     logger = getattr(ctx, "log", log)
     tun_addr = os.getenv("SINGBOX_TUN_ADDR", "10.99.0.1/30")
-    socks_port, socks_host = int(os.getenv("XRAY_SOCKS_PORT", "10808")), os.getenv(
-        "XRAY_SOCKS_HOST", "127.0.0.1"
-    )
+    socks_port = int(os.getenv("XRAY_SOCKS_PORT", "10808"))
+    socks_host = os.getenv("XRAY_SOCKS_HOST", "127.0.0.1")
     cfg = {
         "log": {"level": "warn"},
         "inbounds": [
@@ -149,29 +172,20 @@ def generate_singbox_config(profile_path: Optional[str] = None) -> dict:
         "route": {"rules": [{"action": "sniff"}]},
     }
 
+    out_tag = "xray-socks"
     if profile_path and os.path.exists(profile_path):
         try:
             if profile_path.endswith(".ovpn"):
                 with open(profile_path, "r", encoding="utf-8") as f:
-                    ep = _parse_ovpn_endpoint(f.read())
-                cfg["endpoints"] = [ep]
-                cfg["route"]["rules"].append(
-                    {"inbound": ["tun-in"], "outbound": "ovpn-out"}
-                )
+                    cfg["endpoints"] = [_parse_ovpn_endpoint(f.read())]
+                out_tag = "ovpn-out"
             elif profile_path.endswith(".conf"):
-                ep = _parse_wg_endpoint(profile_path)
-                cfg["endpoints"] = [ep]
-                cfg["route"]["rules"].append(
-                    {"inbound": ["tun-in"], "outbound": "wg-out"}
-                )
+                cfg["endpoints"] = [_parse_wg_endpoint(profile_path)]
+                out_tag = "wg-out"
         except Exception as e:
             logger(f"Error parsing profile {profile_path}: {e}", "ERROR")
-            cfg["route"]["rules"].append(
-                {"inbound": ["tun-in"], "outbound": "xray-socks"}
-            )
-    else:
-        cfg["route"]["rules"].append({"inbound": ["tun-in"], "outbound": "xray-socks"})
 
+    cfg["route"]["rules"].append({"inbound": ["tun-in"], "outbound": out_tag})
     return cfg
 
 
@@ -179,9 +193,8 @@ def switch_unlimited_country(country: str) -> bool:
     """Switch Sing-box exit country using KeepSolid profile detour."""
     ctx = Context.get()
     logger = getattr(ctx, "log", log)
-    runner, get_path = getattr(ctx, "run_args", run_args), getattr(
-        ctx, "get_host_path", get_host_path
-    )
+    runner = getattr(ctx, "run_args", run_args)
+    get_path = getattr(ctx, "get_host_path", get_host_path)
     upd_conf = getattr(ctx, "update_goodwifi_conf", update_goodwifi_conf)
     get_profiles = getattr(ctx, "get_country_profiles", get_country_profiles)
     gen_config = getattr(ctx, "generate_singbox_config", generate_singbox_config)
@@ -198,16 +211,7 @@ def switch_unlimited_country(country: str) -> bool:
 
     cfg = gen_config(profile_path)
     config_path = get_path("/etc/sing-box/config.json")
-
-    with tempfile.NamedTemporaryFile("w", delete=False) as tf:
-        json.dump(cfg, tf, indent=2)
-        tmp_name = tf.name
-
-    runner(["sudo", "mkdir", "-p", os.path.dirname(config_path)])
-    runner(["sudo", "cp", tmp_name, config_path])
-    runner(["sudo", "chmod", "0644", config_path])
-    os.unlink(tmp_name)
-
+    _write_json_config(config_path, cfg, runner)
     upd_conf("UNLIMITED_COUNTRY", country)
 
     backend = getattr(ctx, "get_configured_backend")()
@@ -247,9 +251,8 @@ def switch_reality_server(server_num: str) -> bool:
     """Switch primary Xray Reality outbound between server-1 and server-2."""
     ctx = Context.get()
     logger = getattr(ctx, "log", log)
-    runner, get_path = getattr(ctx, "run_args", run_args), getattr(
-        ctx, "get_host_path", get_host_path
-    )
+    runner = getattr(ctx, "run_args", run_args)
+    get_path = getattr(ctx, "get_host_path", get_host_path)
 
     config_path = get_path("/etc/xray/config.json")
     if not os.path.exists(config_path):
@@ -274,14 +277,7 @@ def switch_reality_server(server_num: str) -> bool:
             o for o in cfg.get("outbounds", []) if o.get("tag") != target_tag
         ]
         cfg["outbounds"] = [target] + other_outbounds
-
-        with tempfile.NamedTemporaryFile("w", delete=False) as tf:
-            json.dump(cfg, tf, indent=2)
-            tmp_name = tf.name
-
-        runner(["sudo", "cp", tmp_name, config_path])
-        runner(["sudo", "chmod", "0644", config_path])
-        os.unlink(tmp_name)
+        _write_json_config(config_path, cfg, runner)
 
         runner(["sudo", "systemctl", "restart", "xray"], timeout=15)
         logger(f"Switched Reality primary to {target_tag}", "SUCCESS")

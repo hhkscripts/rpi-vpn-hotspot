@@ -123,7 +123,11 @@ class TestTelegramBotStatusHandler(unittest.TestCase):
         from unittest.mock import AsyncMock, MagicMock
         from telegrambot.handlers.status import status_command
 
-        mock_status_text.return_value = "<b>🍓 GoodWifi Hotspot Manager</b>\n━━━━━━━━━━━━━━━━━━━━━━\n<b>📊 HOTSPOT STATUS</b>"
+        mock_status_text.return_value = (
+            "<b>🍓 GoodWifi Hotspot Manager</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "<b>📊 HOTSPOT STATUS</b>"
+        )
 
         update = MagicMock()
         update.effective_user.id = 12345
@@ -134,7 +138,7 @@ class TestTelegramBotStatusHandler(unittest.TestCase):
 
         asyncio.run(status_command(update, context))
 
-        # Must be called exactly once (no extra "GoodWifi Hotspot Manager" greeting bubble)
+        # Must be called once (no extra greeting bubble)
         self.assertEqual(update.message.reply_text.call_count, 1)
         call_kwargs = update.message.reply_text.call_args.kwargs
         self.assertIn("GoodWifi Hotspot Manager", call_kwargs["text"])
@@ -144,4 +148,3 @@ class TestTelegramBotStatusHandler(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

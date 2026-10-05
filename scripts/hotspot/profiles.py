@@ -139,7 +139,9 @@ def get_country_profiles(
                 found_files.append((root, fname))
 
     for root, fname in sorted(found_files, key=lambda x: x[1]):
-        m = re.match(r"^([a-z]{2,3}(?:-[a-z]{2,3})?)(?:[-_].*)?\.(?:ovpn|conf)$", fname.lower())
+        m = re.match(
+            r"^([a-z]{2,3}(?:-[a-z]{2,3})?)(?:[-_].*)?\.(?:ovpn|conf)$", fname.lower()
+        )
         if m:
             cc = m.group(1)
         else:
