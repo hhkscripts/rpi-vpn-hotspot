@@ -166,7 +166,12 @@ def check_vpn_external_ip() -> tuple[bool, str]:
     ]
 
     iface, _ = get_iface()
-    for candidate in [iface, "sing0", "awg0", "wg0", "tun0"]:
+    candidates = [
+        c
+        for i, c in enumerate([iface, "sing0", "awg0", "wg0", "tun0"])
+        if c and c not in [iface, "sing0", "awg0", "wg0", "tun0"][:i]
+    ]
+    for candidate in candidates:
         for url in urls:
             ok, out, _ = runner(
                 [

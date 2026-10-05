@@ -228,12 +228,13 @@ def switch_unlimited_country(country: str) -> bool:
             ensure_adg()
 
     if country not in ["direct", "off", "none"]:
-        time.sleep(4)
         check_ext = getattr(ctx, "check_vpn_external_ip")
-        ok_ext, _ = check_ext()
-        if not ok_ext:
-            time.sleep(3)
+        ok_ext = False
+        for _ in range(8):
+            time.sleep(2)
             ok_ext, _ = check_ext()
+            if ok_ext:
+                break
         if not ok_ext:
             logger(
                 f"Country profile '{country.upper()}' did not handshake. "
