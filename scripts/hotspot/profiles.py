@@ -16,20 +16,26 @@ def get_country_profiles(
     """Scan profiles folder for WireGuard (.conf) and OpenVPN (.ovpn) files."""
     if not profiles_dir:
         candidates = [
+            "/host/etc/goodwifi/profiles",
+            "/etc/goodwifi/profiles",
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "..", "..", "profiles"
             ),
             os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "profiles"),
-            "/host/etc/goodwifi/profiles",
-            "/etc/goodwifi/profiles",
             "/app/profiles",
             os.path.join(os.getcwd(), "profiles"),
             "profiles",
         ]
         for c in candidates:
             if os.path.exists(c) and os.path.isdir(c):
-                profiles_dir = c
-                break
+                has_files = any(
+                    f.endswith((".ovpn", ".conf"))
+                    for _, _, fnames in os.walk(c)
+                    for f in fnames
+                )
+                if has_files:
+                    profiles_dir = c
+                    break
 
     if not profiles_dir or not os.path.exists(profiles_dir):
         return {}
@@ -129,11 +135,11 @@ def get_country_profiles(
     found_files = []
     for root, _, fnames in os.walk(profiles_dir):
         for fname in fnames:
-            if fname.endswith(".ovpn"):
+            if fname.endswith((".ovpn", ".conf")):
                 found_files.append((root, fname))
 
     for root, fname in sorted(found_files, key=lambda x: x[1]):
-        m = re.match(r"^([a-z]{2,3}(?:-[a-z]{2,3})?)(?:[-_].*)?\.ovpn$", fname.lower())
+        m = re.match(r"^([a-z]{2,3}(?:-[a-z]{2,3})?)(?:[-_].*)?\.(?:ovpn|conf)$", fname.lower())
         if m:
             cc = m.group(1)
         else:
