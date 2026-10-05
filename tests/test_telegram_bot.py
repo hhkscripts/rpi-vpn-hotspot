@@ -7,13 +7,17 @@ from tests.bot.test_config import TestTelegramBotConfig
 from tests.bot.test_dynamic_emojis import TestDynamicEmojis
 from tests.bot.test_health import TestTelegramBotHealthServer
 from tests.bot.test_router import TestTelegramBotTextRouter
-from tests.bot.test_runner import TestTelegramBotRunnerConfigParsers
+from tests.bot.test_runner import (
+    TestTelegramBotRunnerConfigParsers,
+    TestTelegramBotStatusHandler,
+)
 from tests.bot.test_ui import TestTelegramBotUI
 
 __all__ = [
     "TestTelegramBotConfig",
     "TestTelegramBotUI",
     "TestTelegramBotRunnerConfigParsers",
+    "TestTelegramBotStatusHandler",
     "TestTelegramBotHealthServer",
     "TestTelegramBotAppCreation",
     "TestTelegramBotTextRouter",

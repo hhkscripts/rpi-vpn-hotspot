@@ -36,7 +36,9 @@ def print_status(status: HotspotStatus, telegram_format: bool = False) -> str:
 
     if telegram_format:
         lines = []
-        lines.append(f"<b>{EMOJI_RPI} HOTSPOT STATUS</b>")
+        lines.append(f"<b>{EMOJI_RPI} GoodWifi Hotspot Manager</b>")
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append("<b>📊 HOTSPOT STATUS</b>")
         lines.append("")
 
         lines.append(f"<b>{EMOJI_TOOLS} SERVICES:</b>")

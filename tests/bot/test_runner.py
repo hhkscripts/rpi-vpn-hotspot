@@ -113,5 +113,35 @@ class TestTelegramBotRunnerConfigParsers(unittest.TestCase):
                 self.assertIn("5.183", servers[1][1])
 
 
+class TestTelegramBotStatusHandler(unittest.TestCase):
+    """Test status_command handler behavior."""
+
+    @patch("telegrambot.handlers.status.check_authorization", return_value=True)
+    @patch("telegrambot.handlers.status.get_status_text")
+    def test_status_command_sends_single_bubble(self, mock_status_text, mock_auth):
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock
+        from telegrambot.handlers.status import status_command
+
+        mock_status_text.return_value = "<b>🍓 GoodWifi Hotspot Manager</b>\n━━━━━━━━━━━━━━━━━━━━━━\n<b>📊 HOTSPOT STATUS</b>"
+
+        update = MagicMock()
+        update.effective_user.id = 12345
+        update.message.reply_text = AsyncMock()
+
+        context = MagicMock()
+        context.user_data = {}
+
+        asyncio.run(status_command(update, context))
+
+        # Must be called exactly once (no extra "GoodWifi Hotspot Manager" greeting bubble)
+        self.assertEqual(update.message.reply_text.call_count, 1)
+        call_kwargs = update.message.reply_text.call_args.kwargs
+        self.assertIn("GoodWifi Hotspot Manager", call_kwargs["text"])
+        self.assertEqual(call_kwargs["parse_mode"], "HTML")
+        self.assertIsNotNone(call_kwargs.get("reply_markup"))
+
+
 if __name__ == "__main__":
     unittest.main()
+

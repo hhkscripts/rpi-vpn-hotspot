@@ -5,7 +5,6 @@ from telegram.ext import ContextTypes
 
 from telegrambot.core.config import check_authorization, logger
 from telegrambot.core.runner import get_status_text
-from telegrambot.ui.main_keyboard import MAIN_KEYBOARD
 from telegrambot.ui.status_keyboards import make_status_keyboard
 
 
@@ -20,13 +19,6 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     reply_markup = make_status_keyboard(status_text)
 
     if update.message is not None:
-        if context.user_data is not None and not context.user_data.get(
-            "keyboard_v2_adguard"
-        ):
-            context.user_data["keyboard_v2_adguard"] = True
-            await update.message.reply_text(
-                "GoodWifi Hotspot Manager", reply_markup=MAIN_KEYBOARD
-            )
         await update.message.reply_text(
             text=status_text, reply_markup=reply_markup, parse_mode="HTML"
         )
