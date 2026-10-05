@@ -120,9 +120,34 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         raw_title = region_titles.get(reg, reg.capitalize())
         title = format_region_badge(reg, raw_title)
         reply_markup = make_country_keyboard(selected_region=reg)
+
+        if reg != "all":
+            filtered = {cc: p for cc, p in profiles.items() if p.get("region") == reg}
+        else:
+            filtered = profiles
+
+        country_lines = []
+        for cc, p in sorted(filtered.items()):
+            flag = p.get("flag", "🌐")
+            badge = format_country_badge(cc, fallback_flag=flag)
+            cname = p.get("country_name", cc.upper())
+            country_lines.append(f"• {badge} <b>{cc.upper()}</b> — {cname}")
+
+        if len(country_lines) <= 25:
+            dest_header = f"<b>Available Destinations ({len(country_lines)}):</b>"
+            dest_body = "\n".join(country_lines)
+        else:
+            dest_header = f"<b>Available Destinations ({len(country_lines)}):</b>"
+            dest_body = (
+                "\n".join(country_lines[:25])
+                + f"\n<i>... and {len(country_lines) - 25} more (use ◀️ ▶️ tabs)</i>"
+            )
+
         text = (
             f"<b>{title}:</b>\n\n"
             f"Active Exit: <b>{current_display}</b>\n\n"
+            f"{dest_header}\n"
+            f"{dest_body}\n\n"
             f"Choose an exit country below:"
         )
         try:
@@ -140,7 +165,8 @@ async def country_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         p = profiles[country]
         flag = p.get("flag", "🌐")
         badge = format_country_badge(country, fallback_flag=flag)
-        target_name = f"{badge} {p.get('country_name', country.upper())}"
+        cname = p.get("country_name", country.upper())
+        target_name = f"{badge} {cname} ({country.upper()})"
     elif country == "direct":
         target_name = "Direct VPS (No Detour)"
     else:
