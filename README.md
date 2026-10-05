@@ -1,17 +1,22 @@
-# Raspberry Pi VPN Hotspot (GoodWifi)
+# Raspberry Pi VPN Hotspot (`rpi-vpn-hotspot`)
 
-GoodWifi is a resilient Raspberry Pi Wi-Fi hotspot designed to defeat censorship and DPI (Deep Packet Inspection). It automatically routes connected Wi-Fi clients through an encrypted VPN tunnel (**AmneziaWG**, **WireGuard**, or **OpenVPN**) while keeping the Pi host, Docker workloads, and local services on the normal Ethernet route.
+A resilient Raspberry Pi Wi-Fi hotspot router designed to defeat censorship and DPI (Deep Packet Inspection). It automatically routes connected Wi-Fi clients through an encrypted, high-performance VPN tunnel (**sing-box VLESS Reality**, **AmneziaWG**, **WireGuard**, or **OpenVPN**) while keeping the Pi host, Docker workloads, and local services on the normal Ethernet route.
 
 ---
 
 ## Key Features
 
-- **Multi-Backend VPN**: Native support for **AmneziaWG (`awg0`)** (obfuscated anti-DPI WireGuard), **WireGuard (`wg0`)**, and **OpenVPN (`tun0`)**, with automatic health checking and failover.
+- **Multi-Backend VPN Engine**: Native support for:
+  - **sing-box VLESS Reality (`sing0`)**: Advanced anti-censorship tunneling with dynamic multi-country exit switching (Japan, Singapore, US, etc.) masquerading as genuine TLS traffic.
+  - **AmneziaWG (`awg0`)**: Obfuscated anti-DPI WireGuard with customized junk packets and header magic.
+  - **WireGuard (`wg0`)**: High-speed, low-latency standard WireGuard.
+  - **OpenVPN (`tun0`)**: Traditional OpenVPN with replay-window adjustments.
 - **Selective Policy Routing**: Hotspot client traffic goes through the active VPN; Raspberry Pi host services, SSH, and Docker containers remain reachable on Ethernet (`eth0`).
-- **Selective GitHub Routing**: Routes GitHub API, Git, and GitHub Actions runner traffic through the VPN to bypass local censorship while keeping the rest of host traffic on local LAN.
-- **Selective Local Bypass (Crypto / Banking)**: Automatically routes specific services (such as Binance, Bybit, and Myanmar banking) through the local Myanmar ISP gateway via DNS ipsets (`local_routes`) to avoid VPN geo-blocking.
-- **AdGuard Home DNS Filtering**: Blocks ads and trackers network-wide while dynamically populating policy routing ipsets.
-- **Telegram Bot Remote Control**: Manage VPN backends, inspect connected clients, and monitor system health with interactive inline buttons and Telegram Premium status emojis.
+- **Selective GitHub & Linux Repo Routing**: Routes GitHub API, Git, GitHub Actions runner, and repository mirrors through the VPN to bypass ISP throttling while keeping other host traffic on local LAN.
+- **Selective Local Bypass (Crypto / Banking)**: Automatically routes specific services (such as Binance, Bybit, and local banking) through the local ISP gateway via DNS ipsets (`local_routes`) to avoid VPN geo-blocking.
+- **AdGuard Home DNS Protection**: Blocks ads, malicious domains, and tracking network-wide while dynamically populating policy routing ipsets.
+- **Telegram Bot Remote Control**: Manage VPN backends, switch exit countries on the fly, inspect connected clients, and monitor system health with interactive inline buttons and status badges.
+- **Fully Customizable Hotspot**: Choose any Wi-Fi name (SSID) and WPA2 passphrase easily during setup or dynamically at runtime.
 
 ---
 
@@ -212,16 +217,41 @@ The Pi can run a self-hosted GitHub Actions runner (`actions.runner.hhkscripts.R
 - Git SSH operations automatically bind to the active VPN interface (`awg0` or `tun0`) via `~/.ssh/config`.
 - TCP MSS is clamped to PMTU on outbound packets, ensuring TLS handshakes and large payloads never timeout.
 
----
-
 ## Quick Start & Installation
 
 ```bash
-git clone https://github.com/hhkscripts/vpn.git
-cd vpn
+git clone https://github.com/hhkscripts/rpi-vpn-hotspot.git
+cd rpi-vpn-hotspot
 chmod +x setup.sh uninstall.sh scripts/*.sh scripts/hotspot-manager.py
 sudo ./setup.sh
 ```
+
+During installation, the setup wizard will prompt you to set your custom **Hotspot Wi-Fi SSID** and **WPA2 Password** (at least 8 characters).
+
+You can also pass credentials directly for automated/unattended deployments:
+
+```bash
+HOTSPOT_SSID="MySecureHotspot" HOTSPOT_PASSWORD="SuperSecretPassword123" sudo -E ./setup.sh
+```
+
+### Changing Hotspot Name or Password Later
+
+To change the SSID or password after installation, simply edit `/etc/hostapd/hostapd.conf`:
+
+```ini
+ssid=MyNewHotspot
+wpa_passphrase=MyNewPassword123
+```
+
+Then restart the Wi-Fi service:
+
+```bash
+sudo systemctl restart hostapd
+```
+
+The hotspot manager CLI and Telegram Bot will automatically detect and reflect the new SSID in their status dashboards.
+
+---
 
 To uninstall and clean up all firewall rules, configs, and services:
 

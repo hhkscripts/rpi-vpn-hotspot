@@ -349,6 +349,10 @@ configure_hotspot_credentials() {
     exit 1
   fi
 
+  if [ "$password" = "GoodPassword" ]; then
+    log_warn "Notice: Using default password 'GoodPassword'. To secure your Wi-Fi, set a custom password with HOTSPOT_PASSWORD."
+  fi
+
   render_hostapd_conf "$ssid" "$password"
 }
 
@@ -398,6 +402,13 @@ backup_file /etc/goodwifi/goodwifi.conf
 sudo mkdir -p /etc/goodwifi
 if [ ! -f /etc/goodwifi/goodwifi.conf ]; then
   copy_file "$CONFIG_DIR/goodwifi.conf" /etc/goodwifi/goodwifi.conf 0644
+fi
+if [ -f /etc/goodwifi/goodwifi.conf ] && [ -n "$ssid" ]; then
+  if grep -q '^HOTSPOT_SSID=' /etc/goodwifi/goodwifi.conf; then
+    sudo sed -i "s/^HOTSPOT_SSID=.*/HOTSPOT_SSID=\"$ssid\"/" /etc/goodwifi/goodwifi.conf 2>/dev/null || true
+  else
+    echo "HOTSPOT_SSID=\"$ssid\"" | sudo tee -a /etc/goodwifi/goodwifi.conf >/dev/null || true
+  fi
 fi
 copy_file "$CONFIG_DIR/github-ipv4-ranges.txt" /etc/goodwifi/github-ipv4-ranges.txt 0644
 
