@@ -100,9 +100,10 @@ def check_clients() -> int:
     wlan = cfg.get("interface_wlan", "wlan0")
     candidates = [wlan, "wlan1", "ap0"]
     for dev in dict.fromkeys(c for c in candidates if c):
-        ok, out, _ = runner(["iw", "dev", dev, "station", "dump"])
-        if ok:
-            return sum(1 for line in out.splitlines() if line.startswith("Station "))
+        for cmd in [["sudo", "iw", "dev", dev, "station", "dump"], ["/usr/sbin/iw", "dev", dev, "station", "dump"], ["iw", "dev", dev, "station", "dump"]]:
+            ok, out, _ = runner(cmd)
+            if ok:
+                return sum(1 for line in out.splitlines() if line.startswith("Station "))
     return 0
 
 
@@ -113,10 +114,12 @@ def check_hotspot() -> bool:
     wlan = cfg.get("interface_wlan", "wlan0")
     candidates = [wlan, "wlan1", "ap0"]
     for dev in dict.fromkeys(c for c in candidates if c):
-        ok, out, _ = runner(["iw", "dev", dev, "info"])
-        if ok and any(line.strip() == "type AP" for line in out.splitlines()):
-            return True
-    return False
+        for cmd in [["sudo", "iw", "dev", dev, "info"], ["/usr/sbin/iw", "dev", dev, "info"], ["iw", "dev", dev, "info"]]:
+            ok, out, _ = runner(cmd)
+            if ok and any(line.strip() == "type AP" for line in out.splitlines()):
+                return True
+    ok, out, _ = runner(["systemctl", "is-active", "hostapd"])
+    return ok and out.strip() == "active"
 
 
 def get_hotspot_ssid() -> str:
@@ -139,9 +142,17 @@ def fix_hotspot() -> bool:
     rst_vpn = getattr(ctx, "restart_vpn")
     apply_pol = getattr(ctx, "apply_vpn_policy")
 
-    logger("Restarting hotspot services...")
-    runner(["sudo", "systemctl", "restart", "hostapd", "dnsmasq"])
-    time.sleep(2)
+    # Only restart hostapd if it is inactive/dead to avoid dropping Wi-Fi for clients
+    ok, out, _ = runner(["systemctl", "is-active", "hostapd"])
+    if not ok or out.strip() != "active":
+        logger("Hostapd AP inactive; restarting hostapd...")
+        runner(["sudo", "systemctl", "restart", "hostapd"])
+    else:
+        logger("Hostapd AP is active and healthy.")
+
+    logger("Restarting dnsmasq and ensuring DNS resilience...")
+    runner(["sudo", "systemctl", "restart", "dnsmasq"])
+    time.sleep(1)
     ensure_dns = getattr(ctx, "ensure_adguard_resilience", None)
     if ensure_dns:
         ensure_dns()

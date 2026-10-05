@@ -68,6 +68,7 @@ class CountryProfileTests(unittest.TestCase):
             self.assertEqual(ep["detour"], "xray-socks")
             self.assertEqual(ep["peers"][0]["address"], "143.198.208.211")
             self.assertEqual(ep["peers"][0]["port"], 255)
+            self.assertEqual(ep["peers"][0]["persistent_keepalive_interval"], 25)
             self.assertEqual(cfg["route"]["rules"][0]["action"], "sniff")
             self.assertEqual(cfg["route"]["rules"][1]["outbound"], "wg-out")
         finally:
@@ -97,6 +98,8 @@ class CountryProfileTests(unittest.TestCase):
             self.assertEqual(ep["auth"], "SHA256")
             self.assertIn("AES-128-GCM", ep["data_ciphers"])
             self.assertEqual(ep["tls"]["server_name"], "de.nordvpn.com")
+            self.assertEqual(ep["ping_interval"], "5s")
+            self.assertEqual(ep["ping_restart"], "20s")
             self.assertEqual(cfg["route"]["rules"][1]["outbound"], "ovpn-out")
         finally:
             if os.path.exists(tf_path):

@@ -29,15 +29,9 @@ def _parse_ovpn_endpoint(content: str) -> dict:
     ca, cert, key = _tag("ca"), _tag("cert"), _tag("key")
     remote_m = re.search(r"^\s*remote\s+([^\s]+)(?:\s+(\d+))?", content, re.MULTILINE)
     server_host = remote_m.group(1).strip() if remote_m else "127.0.0.1"
-    server_port = (
-        int(remote_m.group(2).strip())
-        if (remote_m and remote_m.group(2))
-        else int(_opt(r"^\s*port\s+(\d+)", "1194"))
-    )
-
+    server_port = int(remote_m.group(2)) if (remote_m and remote_m.group(2)) else int(_opt(r"^\s*port\s+(\d+)", "1194"))
     cipher = _opt(r"^\s*cipher\s+([^\s]+)")
-    c_list = [c for c in [cipher, "AES-256-GCM", "AES-256-CBC"] if c]
-    data_ciphers = list(dict.fromkeys(c_list))
+    data_ciphers = list(dict.fromkeys([c for c in [cipher, "AES-256-GCM", "AES-256-CBC"] if c]))
     auth_val = _opt(r"^\s*auth\s+([^\s]+)", "SHA512").upper()
 
     tls_name = (
@@ -46,11 +40,7 @@ def _parse_ovpn_endpoint(content: str) -> dict:
         or _opt(r'^\s*(?:verify-x509-name|tls-remote)\s+["\']?([^"\'\s]+)["\']?')
     )
     if not tls_name and re.search(r"[a-zA-Z]", server_host):
-        tls_name = (
-            "server.ironnodes.com"
-            if "vpnunlimitedapp.com" in server_host.lower()
-            else server_host
-        )
+        tls_name = "server.ironnodes.com" if "vpnunlimitedapp.com" in server_host.lower() else server_host
 
     server_ip = server_host
     try:
@@ -60,11 +50,7 @@ def _parse_ovpn_endpoint(content: str) -> dict:
             text=True,
             timeout=3,
         )
-        ips = [
-            line.strip()
-            for line in res.stdout.splitlines()
-            if line.strip() and not line.startswith(";")
-        ]
+        ips = [l.strip() for l in res.stdout.splitlines() if l.strip() and not l.startswith(";")]
         if ips:
             server_ip = ips[0]
     except Exception:
@@ -78,7 +64,8 @@ def _parse_ovpn_endpoint(content: str) -> dict:
     if tls_name:
         tls_dict["server_name"] = tls_name
 
-    return {
+    ping_val = _opt(r"^\s*ping\s+(\d+)", "5")
+    ep_dict = {
         "type": "openvpn-client",
         "tag": "ovpn-out",
         "server": server_ip,
@@ -86,8 +73,15 @@ def _parse_ovpn_endpoint(content: str) -> dict:
         "data_ciphers": data_ciphers,
         "auth": auth_val,
         "tls": tls_dict,
+        "ping_interval": f"{ping_val}s" if ping_val else "5s",
+        "ping_restart": "20s",
+        "handshake_window": "30s",
+        "tls_timeout": "10s",
         "detour": "xray-socks",
     }
+    if _opt(r"^\s*reneg-sec\s+(\d+)") == "0":
+        ep_dict["renegotiate_disabled"] = True
+    return ep_dict
 
 
 def _parse_wg_endpoint(profile_path: str) -> dict:
@@ -112,6 +106,7 @@ def _parse_wg_endpoint(profile_path: str) -> dict:
                 "port": int(str(port_val).strip()),
                 "public_key": peer.get("publickey", ""),
                 "allowed_ips": ["0.0.0.0/0"],
+                "persistent_keepalive_interval": 25,
             }
         ],
         "detour": "xray-socks",
