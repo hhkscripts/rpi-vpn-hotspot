@@ -1,0 +1,24 @@
+# Linux Package Repositories & Developer Mirrors (Active VPN Tunnel)
+# Routes Linux package downloads, mirrors, and developer repositories
+# through the active VPN to bypass ISP DPI throttling and connection timeouts.
+
+# Tailscale Repositories & Services
+tailscale.com
+pkgs.tailscale.com
+login.tailscale.com
+controlplane.tailscale.com
+
+# Debian & Raspberry Pi Mirrors
+deb.debian.org
+security.debian.org
+archive.debian.org
+archive.raspberrypi.com
+raspbian.raspberrypi.org
+
+# Debian / Fastly Mirror IPv4 CIDRs
+151.101.0.0/16
+199.232.0.0/16
+
+# Developer Package Repositories (Docker, NodeSource)
+download.docker.com
+deb.nodesource.com
