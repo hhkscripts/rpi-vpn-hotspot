@@ -183,8 +183,12 @@ def get_vless_display_name() -> str:
     )
     unlimited_c = get_country()
     if unlimited_c and unlimited_c not in ["direct", "off", "none"]:
-        base_cc = unlimited_c.split("-")[0]
-        flag = FLAG_MAP.get(base_cc, "🌐")
+        base_cc = unlimited_c.split("-")[0].lower()
+        iso = base_cc.upper()
+        if len(iso) == 2 and all("A" <= c <= "Z" for c in iso):
+            flag = "".join(chr(127397 + ord(c)) for c in iso)
+        else:
+            flag = FLAG_MAP.get(base_cc, "🌐")
         return f"VLESS [{flag} {unlimited_c.upper()}]"
     return "VLESS"
 

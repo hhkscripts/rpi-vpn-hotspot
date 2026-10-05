@@ -11,7 +11,10 @@ from telegrambot.constants.emojis import (
     TG_EMOJI_VLESS,
     TG_EMOJI_WIREGUARD,
 )
-from telegrambot.constants.flags import FLAG_MAP
+from telegrambot.core.dynamic_emojis import (
+    enrich_status_text_with_custom_emojis,
+    format_country_badge,
+)
 
 
 def run_hotspot_command(args: List[str]) -> Tuple[str, str, int]:
@@ -47,7 +50,8 @@ async def get_status_text() -> str:
     )
     if code != 0 and not stdout:
         return f"Error getting status:\n{stderr}"
-    return stdout if stdout else "No output from hotspot manager."
+    text = stdout if stdout else "No output from hotspot manager."
+    return enrich_status_text_with_custom_emojis(text, get_current_unlimited_country())
 
 
 def get_current_unlimited_country() -> str:
@@ -100,9 +104,8 @@ def get_current_backend_name() -> str:
     unlimited_c = get_current_unlimited_country()
     vless_label = f"{TG_EMOJI_VLESS} VLESS Reality (sing0)"
     if unlimited_c and unlimited_c not in ["direct", "off", "none"]:
-        base_cc = unlimited_c.split("-")[0].lower()
-        flag = FLAG_MAP.get(base_cc, "🌐")
-        vless_label += f" [{flag} {unlimited_c.upper()}]"
+        badge = format_country_badge(unlimited_c)
+        vless_label += f" [{badge} {unlimited_c.upper()}]"
 
     names = {
         "sing0": vless_label,

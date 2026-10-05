@@ -99,6 +99,26 @@ class TestDynamicEmojis(unittest.TestCase):
         # Empty id case
         self.assertEqual(format_tg_emoji("", "🐉"), "🐉")
 
+    def test_enrich_status_text_with_custom_emojis(self):
+        from telegrambot.core.dynamic_emojis import (
+            enrich_status_text_with_custom_emojis,
+        )
+
+        load_cached_emojis()
+        sample = (
+            "• Connected: <code>True</code> (⚡ VLESS [🇯🇵 JP] / <code>sing0</code>)"
+        )
+        enriched = enrich_status_text_with_custom_emojis(sample, "jp")
+        self.assertIn("tg-emoji", enriched)
+        self.assertIn("5456261908069885892", enriched)
+        self.assertIn("JP", enriched)
+
+        # Direct / none / empty should return unchanged
+        self.assertEqual(
+            enrich_status_text_with_custom_emojis(sample, "direct"), sample
+        )
+        self.assertEqual(enrich_status_text_with_custom_emojis("", "jp"), "")
+
 
 if __name__ == "__main__":
     unittest.main()
