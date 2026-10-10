@@ -132,7 +132,13 @@ class CountryProfileTests(unittest.TestCase):
         self.assertEqual(hotspot_manager.resolve_server_ips("1.2.3.4"), ["1.2.3.4"])
 
         # Multiple IPs resolution mock
-        with patch("socket.getaddrinfo", return_value=[(None, None, None, None, ("10.0.0.1", 0)), (None, None, None, None, ("10.0.0.2", 0))]):
+        with patch(
+            "socket.getaddrinfo",
+            return_value=[
+                (None, None, None, None, ("10.0.0.1", 0)),
+                (None, None, None, None, ("10.0.0.2", 0)),
+            ],
+        ):
             ips = hotspot_manager.resolve_server_ips("vpn.example.com")
             self.assertIn("10.0.0.1", ips)
             self.assertIn("10.0.0.2", ips)
@@ -161,9 +167,17 @@ class CountryProfileTests(unittest.TestCase):
             patch.object(hotspot_manager, "wait_for_interface", return_value=True),
             patch.object(hotspot_manager, "apply_vpn_policy", return_value=True),
             patch.object(hotspot_manager, "refresh_routes", return_value=True),
-            patch.object(hotspot_manager, "ensure_adguard_resilience", return_value=(True, "ok")),
-            patch.object(hotspot_manager, "check_vpn_external_ip", return_value=(True, "10.0.0.2")),
-            patch.object(hotspot_manager, "get_host_path", return_value="/tmp/test_singbox.json"),
+            patch.object(
+                hotspot_manager, "ensure_adguard_resilience", return_value=(True, "ok")
+            ),
+            patch.object(
+                hotspot_manager,
+                "check_vpn_external_ip",
+                return_value=(True, "10.0.0.2"),
+            ),
+            patch.object(
+                hotspot_manager, "get_host_path", return_value="/tmp/test_singbox.json"
+            ),
         ):
             ok = hotspot_manager.rotate_unlimited_country_ip("jp")
             self.assertTrue(ok)

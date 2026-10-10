@@ -108,7 +108,11 @@ def resolve_server_ips(server_host: str) -> list[str]:
         )
         for line in res.stdout.splitlines():
             line = line.strip()
-            if line and not line.startswith(";") and re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", line):
+            if (
+                line
+                and not line.startswith(";")
+                and re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", line)
+            ):
                 ips.append(line)
     except Exception:
         pass
@@ -134,7 +138,11 @@ def resolve_server_ips(server_host: str) -> list[str]:
             )
             for line in res.stdout.splitlines():
                 line = line.strip()
-                if line and not line.startswith(";") and re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", line):
+                if (
+                    line
+                    and not line.startswith(";")
+                    and re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", line)
+                ):
                     ips.append(line)
         except Exception:
             pass
@@ -166,7 +174,9 @@ def get_profile_candidate_ips(profile_path: str) -> list[str]:
     return []
 
 
-def get_next_profile_ip(profile_path: str, current_ip: Optional[str] = None) -> Optional[str]:
+def get_next_profile_ip(
+    profile_path: str, current_ip: Optional[str] = None
+) -> Optional[str]:
     """Return the next candidate IP from the profile pool for rotation/failover."""
     ips = get_profile_candidate_ips(profile_path)
     if not ips:
@@ -179,6 +189,7 @@ def get_next_profile_ip(profile_path: str, current_ip: Optional[str] = None) -> 
 
 def parse_ovpn_endpoint(content: str, target_ip: Optional[str] = None) -> dict:
     """Parse an OpenVPN profile and generate a Sing-box openvpn-client endpoint dict."""
+
     def _tag(t: str) -> str:
         m = re.search(rf"<{t}>\s*(.*?)\s*</{t}>", content, re.DOTALL)
         return m.group(1).strip() if m else ""
@@ -196,7 +207,9 @@ def parse_ovpn_endpoint(content: str, target_ip: Optional[str] = None) -> dict:
         else int(_opt(r"^\s*port\s+(\d+)", "1194"))
     )
     cipher = _opt(r"^\s*cipher\s+([^\s]+)")
-    data_ciphers = list(dict.fromkeys([c for c in [cipher, "AES-256-GCM", "AES-256-CBC"] if c]))
+    data_ciphers = list(
+        dict.fromkeys([c for c in [cipher, "AES-256-GCM", "AES-256-CBC"] if c])
+    )
     auth_val = _opt(r"^\s*auth\s+([^\s]+)", "SHA512").upper()
 
     tls_name = (
@@ -205,9 +218,15 @@ def parse_ovpn_endpoint(content: str, target_ip: Optional[str] = None) -> dict:
         or _opt(r'^\s*(?:verify-x509-name|tls-remote)\s+["\']?([^"\'\s]+)["\']?')
     )
     if not tls_name and re.search(r"[a-zA-Z]", server_host):
-        tls_name = "server.ironnodes.com" if "vpnunlimitedapp.com" in server_host.lower() else server_host
+        tls_name = (
+            "server.ironnodes.com"
+            if "vpnunlimitedapp.com" in server_host.lower()
+            else server_host
+        )
 
-    server_ip = target_ip or (resolve_server_ips(server_host)[0] if server_host else "127.0.0.1")
+    server_ip = target_ip or (
+        resolve_server_ips(server_host)[0] if server_host else "127.0.0.1"
+    )
     tls_dict: dict = {
         "certificate": [ca] if ca else [],
         "client_certificate": [cert] if cert else [],
@@ -255,7 +274,9 @@ def parse_wg_endpoint(profile_path: str, target_ip: Optional[str] = None) -> dic
         "type": "wireguard",
         "tag": "wg-out",
         "system": False,
-        "address": [a.strip() for a in iface.get("address", "").split(",") if a.strip()],
+        "address": [
+            a.strip() for a in iface.get("address", "").split(",") if a.strip()
+        ],
         "private_key": iface.get("privatekey", ""),
         "peers": [
             {
@@ -272,5 +293,3 @@ def parse_wg_endpoint(profile_path: str, target_ip: Optional[str] = None) -> dic
     if psk:
         ep["peers"][0]["pre_shared_key"] = psk.strip()
     return ep
-
-

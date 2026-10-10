@@ -138,7 +138,8 @@ def restart_singbox() -> bool:
             if rotate_fn(country):
                 return True
             logger(
-                f"Country exit '{country.upper()}' failed to connect. Retrying Direct...",
+                f"Country exit '{country.upper()}' failed to connect. "
+                "Retrying Direct...",
                 "WARN",
             )
 

@@ -88,26 +88,25 @@ async def handle_text_message(
             await ipv6_menu_command(update, context)
     elif text in ["restart"] or normalized == "restart":
         await restart_command(update, context)
-    elif (
-        text
-        in [
-            "restart vpn",
-            "restart_vpn",
-            "vpn restart",
-            "rotate ip",
-            "rotate_ip",
-            "rotate vpn",
-            "reload",
-            "reload vpn",
-            "reload_vpn",
-        ]
-        or normalized in ["restart_vpn", "rotate_ip", "reload_vpn"]
-    ):
+    elif text in [
+        "restart vpn",
+        "restart_vpn",
+        "vpn restart",
+        "rotate ip",
+        "rotate_ip",
+        "rotate vpn",
+        "reload",
+        "reload vpn",
+        "reload_vpn",
+    ] or normalized in ["restart_vpn", "rotate_ip", "reload_vpn"]:
         await restart_vpn_command(update, context)
-    elif (
-        text in ["fix", "auto fix", "autofix", "watchdog", "/watchdog"]
-        or normalized in ["fix", "watchdog"]
-    ):
+    elif text in [
+        "fix",
+        "auto fix",
+        "autofix",
+        "watchdog",
+        "/watchdog",
+    ] or normalized in ["fix", "watchdog"]:
         await fix_command(update, context)
     elif text in ["clients", "client"] or normalized == "clients":
         await clients_command(update, context)

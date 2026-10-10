@@ -3,10 +3,8 @@
 Sing-box configuration generator and server/country detour switcher.
 """
 
-import configparser
 import json
 import os
-import re
 import tempfile
 import time
 from typing import Optional
@@ -17,7 +15,6 @@ from .profiles import (
     get_profile_candidate_ips,
     parse_ovpn_endpoint,
     parse_wg_endpoint,
-    resolve_server_ips,
 )
 from .runner import get_host_path, log, run_args, update_goodwifi_conf
 
@@ -83,10 +80,14 @@ def generate_singbox_config(
         try:
             if profile_path.endswith(".ovpn"):
                 with open(profile_path, "r", encoding="utf-8") as f:
-                    cfg["endpoints"] = [_parse_ovpn_endpoint(f.read(), target_ip=target_ip)]
+                    cfg["endpoints"] = [
+                        _parse_ovpn_endpoint(f.read(), target_ip=target_ip)
+                    ]
                 out_tag = "ovpn-out"
             elif profile_path.endswith(".conf"):
-                cfg["endpoints"] = [_parse_wg_endpoint(profile_path, target_ip=target_ip)]
+                cfg["endpoints"] = [
+                    _parse_wg_endpoint(profile_path, target_ip=target_ip)
+                ]
                 out_tag = "wg-out"
         except Exception as e:
             logger(f"Error parsing profile {profile_path}: {e}", "ERROR")
@@ -106,7 +107,9 @@ def get_current_singbox_endpoint_ip() -> Optional[str]:
                 cfg = json.load(f)
             endpoints = cfg.get("endpoints", [])
             if endpoints:
-                return endpoints[0].get("server") or endpoints[0].get("peers", [{}])[0].get("address")
+                return endpoints[0].get("server") or endpoints[0].get("peers", [{}])[
+                    0
+                ].get("address")
         except Exception:
             pass
     return None
@@ -143,7 +146,11 @@ def _try_activate_endpoints(
             target_desc = f" via {cand_ip}" if cand_ip else ""
             logger(f"Connected to {country.upper()}{target_desc}", "SUCCESS")
             return True
-        logger(f"Endpoint {cand_ip} for '{country.upper()}' did not handshake, trying next...", "WARN")
+        logger(
+            f"Endpoint {cand_ip} for '{country.upper()}' did not handshake, "
+            "trying next...",
+            "WARN",
+        )
     return False
 
 
@@ -226,7 +233,11 @@ def switch_unlimited_country(country: str, target_ip: Optional[str] = None) -> b
     if _try_activate_endpoints(ctx, profile_path, ordered_ips, country):
         return True
 
-    logger(f"Country profile '{country.upper()}' did not handshake. Reverting to Direct VLESS...", "WARN")
+    logger(
+        f"Country profile '{country.upper()}' did not handshake. "
+        "Reverting to Direct VLESS...",
+        "WARN",
+    )
     switch_unlimited_country("direct")
     return False
 

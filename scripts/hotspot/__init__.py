@@ -177,6 +177,7 @@ __all__ = [
     "restart_wireguard",
     "rotate_unlimited_country_ip",
     "resolve_server_ips",
+    "get_next_profile_ip",
     "get_profile_candidate_ips",
     "parse_ovpn_endpoint",
     "parse_wg_endpoint",

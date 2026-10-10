@@ -123,7 +123,9 @@ class VpnResilienceWatchdogTests(unittest.TestCase):
                 hotspot_manager, "check_vpn_external_ip", return_value=(True, "1.2.3.4")
             ),
             patch.object(
-                hotspot_manager, "get_active_vpn_interface", return_value=("sing0", "VLESS")
+                hotspot_manager,
+                "get_active_vpn_interface",
+                return_value=("sing0", "VLESS"),
             ),
         ):
             ok, state = hotspot_manager.ensure_vpn_resilience()
@@ -134,7 +136,9 @@ class VpnResilienceWatchdogTests(unittest.TestCase):
         with (
             patch.object(hotspot_manager, "check_vpn", return_value=False),
             patch.object(
-                hotspot_manager, "get_active_vpn_interface", return_value=("sing0", "VLESS")
+                hotspot_manager,
+                "get_active_vpn_interface",
+                return_value=("sing0", "VLESS"),
             ),
             patch.object(
                 hotspot_manager, "get_configured_unlimited_country", return_value="jp"
@@ -153,10 +157,14 @@ class VpnResilienceWatchdogTests(unittest.TestCase):
         with (
             patch.object(hotspot_manager, "check_vpn", return_value=False),
             patch.object(
-                hotspot_manager, "get_active_vpn_interface", return_value=("awg0", "AmneziaWG")
+                hotspot_manager,
+                "get_active_vpn_interface",
+                return_value=("awg0", "AmneziaWG"),
             ),
             patch.object(
-                hotspot_manager, "get_configured_unlimited_country", return_value="direct"
+                hotspot_manager,
+                "get_configured_unlimited_country",
+                return_value="direct",
             ),
             patch.object(hotspot_manager, "restart_vpn", return_value=True) as rst,
             patch.object(hotspot_manager, "log"),

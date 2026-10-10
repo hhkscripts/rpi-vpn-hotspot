@@ -66,7 +66,9 @@ from telegrambot.handlers.vpn import (
 
 async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log errors caused by Updates."""
-    logger.error("Exception while handling update: %s", context.error, exc_info=context.error)
+    logger.error(
+        "Exception while handling update: %s", context.error, exc_info=context.error
+    )
 
 
 async def _post_init(app: Application) -> None:

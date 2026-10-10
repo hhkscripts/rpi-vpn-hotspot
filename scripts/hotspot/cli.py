@@ -263,12 +263,10 @@ def main() -> None:
         print(output)
 
     if args.clients:
-        connected = getattr(
-            ctx, "get_connected_clients", get_connected_clients
-        )()
+        connected = getattr(ctx, "get_connected_clients", get_connected_clients)()
         count = len(connected) if connected else getattr(ctx, "check_clients")()
         print(f"Clients: {count}")
-        for dev in (connected or []):
+        for dev in connected or []:
             print(f"  - {dev['hostname']} ({dev['ip']} / {dev['mac']})")
 
     if args.restart_vpn:
