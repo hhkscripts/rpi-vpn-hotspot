@@ -7,9 +7,9 @@ from tests.hotspot import hotspot_manager
 
 
 class Ipv6ModeTests(unittest.TestCase):
-    def test_get_configured_ipv6_mode_defaults_to_drop(self):
+    def test_get_configured_ipv6_mode_defaults_to_reject(self):
         with patch("builtins.open", side_effect=FileNotFoundError):
-            self.assertEqual(hotspot_manager.get_configured_ipv6_mode(), "drop")
+            self.assertEqual(hotspot_manager.get_configured_ipv6_mode(), "reject")
 
     def test_set_ipv6_mode_rejects_invalid_values(self):
         self.assertFalse(hotspot_manager.set_ipv6_mode("invalid"))

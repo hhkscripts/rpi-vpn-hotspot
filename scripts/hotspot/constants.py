@@ -171,6 +171,31 @@ FLAG_MAP = {
     "ua": "🇺🇦",
 }
 
+COUNTRY_NAME_MAP: dict[str, str] = {
+    "sg": "Singapore", "jp": "Japan", "us": "United States", "uk": "United Kingdom",
+    "gb": "United Kingdom", "de": "Germany", "fr": "France", "ca": "Canada",
+    "au": "Australia", "nl": "Netherlands", "hk": "Hong Kong", "in": "India",
+    "kr": "South Korea", "th": "Thailand", "at": "Austria", "ba": "Bosnia",
+    "br": "Brazil", "ch": "Switzerland", "se": "Sweden", "no": "Norway",
+    "fi": "Finland", "es": "Spain", "it": "Italy", "pl": "Poland",
+    "ie": "Ireland", "nz": "New Zealand", "mx": "Mexico", "za": "South Africa",
+    "my": "Malaysia", "vn": "Vietnam", "id": "Indonesia", "ph": "Philippines",
+    "tw": "Taiwan", "cl": "Chile", "cz": "Czech Republic", "dk": "Denmark",
+    "gr": "Greece", "hr": "Croatia", "il": "Israel", "lt": "Lithuania",
+    "lux": "Luxembourg", "lu": "Luxembourg", "ae": "United Arab Emirates",
+    "ng": "Nigeria", "ua": "Ukraine",
+}
+
+REGION_MAP: dict[str, list[str]] = {
+    "asia": ["ae", "il", "in", "jp", "kr", "sg", "hk", "th", "my", "vn", "id", "ph", "tw"],
+    "europe": [
+        "at", "ba", "ch", "cz", "de", "dk", "es", "fr", "gr", "hr", "it",
+        "lt", "lux", "lu", "nl", "no", "pl", "se", "ua", "uk", "gb", "fi", "ie",
+    ],
+    "americas": ["br", "ca", "cl", "mx", "us"],
+    "oceania-africa": ["au", "nz", "ng", "za"],
+}
+
 
 class Colors:
     GREEN = "\033[92m"
@@ -178,3 +203,4 @@ class Colors:
     YELLOW = "\033[93m"
     BOLD = "\033[1m"
     RESET = "\033[0m"
+

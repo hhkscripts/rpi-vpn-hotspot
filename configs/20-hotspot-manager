@@ -20,7 +20,7 @@ log_message() {
 }
 
 get_active_vpn() {
-    for cand in awg0 wg0 tun0; do
+    for cand in sing0 awg0 wg0 tun0; do
         if ip -4 addr show "$cand" 2>/dev/null | grep -q "inet "; then
             echo "$cand"
             return 0
@@ -29,9 +29,17 @@ get_active_vpn() {
     return 1
 }
 
-if [ "${1:-}" != "$LAN_IF" ]; then
+is_wan_interface() {
+    case "$1" in
+        "$LAN_IF"|eth*|usb*|wwan*|enx*|wlan1) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+if ! is_wan_interface "${1:-}"; then
     exit 0
 fi
+LAN_IF="${1:-$LAN_IF}"
 
 case "${2:-}" in
     "up")

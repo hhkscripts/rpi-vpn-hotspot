@@ -127,6 +127,47 @@ class CountryProfileTests(unittest.TestCase):
             upd.assert_called_once_with("UNLIMITED_COUNTRY", "direct")
             ensure_adg.assert_called_once_with()
 
+    def test_resolve_server_ips_and_next_ip(self):
+        # Raw IP should return directly
+        self.assertEqual(hotspot_manager.resolve_server_ips("1.2.3.4"), ["1.2.3.4"])
+
+        # Multiple IPs resolution mock
+        with patch("socket.getaddrinfo", return_value=[(None, None, None, None, ("10.0.0.1", 0)), (None, None, None, None, ("10.0.0.2", 0))]):
+            ips = hotspot_manager.resolve_server_ips("vpn.example.com")
+            self.assertIn("10.0.0.1", ips)
+            self.assertIn("10.0.0.2", ips)
+
+    def test_rotate_unlimited_country_ip(self):
+        with (
+            patch.object(
+                hotspot_manager, "get_configured_unlimited_country", return_value="jp"
+            ),
+            patch.object(
+                hotspot_manager,
+                "get_country_profiles",
+                return_value={"jp": {"path": "/fake/jp.ovpn"}},
+            ),
+            patch.object(
+                hotspot_manager,
+                "get_profile_candidate_ips",
+                return_value=["10.0.0.1", "10.0.0.2"],
+            ),
+            patch.object(
+                hotspot_manager,
+                "get_current_singbox_endpoint_ip",
+                return_value="10.0.0.1",
+            ),
+            patch.object(hotspot_manager, "run_args", return_value=(True, "", "")),
+            patch.object(hotspot_manager, "wait_for_interface", return_value=True),
+            patch.object(hotspot_manager, "apply_vpn_policy", return_value=True),
+            patch.object(hotspot_manager, "refresh_routes", return_value=True),
+            patch.object(hotspot_manager, "ensure_adguard_resilience", return_value=(True, "ok")),
+            patch.object(hotspot_manager, "check_vpn_external_ip", return_value=(True, "10.0.0.2")),
+            patch.object(hotspot_manager, "get_host_path", return_value="/tmp/test_singbox.json"),
+        ):
+            ok = hotspot_manager.rotate_unlimited_country_ip("jp")
+            self.assertTrue(ok)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,8 @@
+/var/log/hotspot-manager.log {
+    weekly
+    rotate 4
+    compress
+    missingok
+    notifempty
+    maxsize 10M
+}

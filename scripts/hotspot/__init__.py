@@ -47,11 +47,19 @@ from .detection import (
     check_vpn_external_ip,
     check_vpn_ip,
     get_active_vpn_interface,
+    get_connected_clients,
     get_vpn_connection_name,
     wait_for_interface,
 )
 from .formatter import print_status
-from .profiles import get_country_profiles
+from .profiles import (
+    get_country_profiles,
+    get_next_profile_ip,
+    get_profile_candidate_ips,
+    parse_ovpn_endpoint,
+    parse_wg_endpoint,
+    resolve_server_ips,
+)
 from .routing import apply_vpn_policy, refresh_github_routes, refresh_routes
 from .runner import (
     check_docker_container,
@@ -68,6 +76,8 @@ from .runner import (
 )
 from .singbox import (
     generate_singbox_config,
+    get_current_singbox_endpoint_ip,
+    rotate_unlimited_country_ip,
     switch_reality_server,
     switch_unlimited_country,
 )
@@ -77,6 +87,7 @@ from .status import (
     check_hotspot,
     check_internet,
     check_ping,
+    ensure_vpn_resilience,
     fix_hotspot,
     get_hotspot_ssid,
     get_status,
@@ -137,6 +148,7 @@ __all__ = [
     "check_vpn_ip",
     "configure_dnsmasq_fallback",
     "ensure_adguard_resilience",
+    "ensure_vpn_resilience",
     "fix_hotspot",
     "generate_singbox_config",
     "get_active_vpn_interface",
@@ -145,6 +157,8 @@ __all__ = [
     "get_configured_ipv6_mode",
     "get_configured_unlimited_country",
     "get_country_profiles",
+    "get_connected_clients",
+    "get_current_singbox_endpoint_ip",
     "get_host_path",
     "get_hotspot_ssid",
     "get_status",
@@ -161,6 +175,11 @@ __all__ = [
     "restart_singbox",
     "restart_vpn",
     "restart_wireguard",
+    "rotate_unlimited_country_ip",
+    "resolve_server_ips",
+    "get_profile_candidate_ips",
+    "parse_ovpn_endpoint",
+    "parse_wg_endpoint",
     "run_args",
     "set_adguard_state",
     "set_ipv6_mode",

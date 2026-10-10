@@ -1,0 +1,9 @@
+[Unit]
+Description=GoodWifi VPN and DNS Health Watchdog
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/hotspot-manager.py --watchdog
+StandardOutput=journal
+StandardError=journal

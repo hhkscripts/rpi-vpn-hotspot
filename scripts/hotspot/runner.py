@@ -153,7 +153,7 @@ def get_configured_ipv6_mode() -> str:
                             return val
         except Exception:
             pass
-    return "drop"
+    return "reject"
 
 
 def get_configured_unlimited_country() -> str:

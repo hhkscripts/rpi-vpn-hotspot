@@ -14,7 +14,13 @@ from .detection import (
     wait_for_interface,
 )
 from .routing import apply_vpn_policy, refresh_routes
-from .runner import get_configured_backend, log, run_args, update_goodwifi_conf
+from .runner import (
+    get_configured_backend,
+    get_configured_unlimited_country,
+    log,
+    run_args,
+    update_goodwifi_conf,
+)
 
 
 def _resolve_refresh(ctx):
@@ -117,7 +123,24 @@ def restart_singbox() -> bool:
     refresh_routes = _resolve_refresh(ctx)
     get_path = getattr(ctx, "get_host_path")
     gen_config = getattr(ctx, "generate_singbox_config")
-    upd_conf = getattr(ctx, "update_goodwifi_conf")
+    get_country = getattr(
+        ctx, "get_configured_unlimited_country", get_configured_unlimited_country
+    )
+
+    country = get_country() if get_country else "direct"
+    if country and country not in ["direct", "off", "none"]:
+        rotate_fn = getattr(ctx, "rotate_unlimited_country_ip", None)
+        if rotate_fn:
+            logger(
+                f"Restarting Sing-box Reality with configured exit {country.upper()}..."
+            )
+            runner(["sudo", "systemctl", "start", "xray"], timeout=15)
+            if rotate_fn(country):
+                return True
+            logger(
+                f"Country exit '{country.upper()}' failed to connect. Retrying Direct...",
+                "WARN",
+            )
 
     logger("Restarting Sing-box Reality (sing0)...")
     runner(["sudo", "systemctl", "start", "xray"], timeout=15)
@@ -142,7 +165,6 @@ def restart_singbox() -> bool:
         runner(["sudo", "cp", tmp_name, config_path])
         runner(["sudo", "chmod", "0644", config_path])
         os.unlink(tmp_name)
-        upd_conf("UNLIMITED_COUNTRY", "direct")
         runner(["sudo", "systemctl", "restart", "sing-box"], timeout=25)
         if wait_if("sing0", timeout=15):
             logger(
@@ -242,47 +264,29 @@ def restart_vpn() -> bool:
     get_iface = getattr(ctx, "get_active_vpn_interface", get_active_vpn_interface)
     chk_vpn = getattr(ctx, "check_vpn", check_vpn)
     get_path = getattr(ctx, "get_host_path")
-    rst_singbox = getattr(ctx, "restart_singbox", restart_singbox)
-    rst_amnezia = getattr(ctx, "restart_amneziawg", restart_amneziawg)
-    rst_wireguard = getattr(ctx, "restart_wireguard", restart_wireguard)
-    rst_openvpn = getattr(ctx, "restart_openvpn", restart_openvpn)
+    rst_map = {
+        "sing0": getattr(ctx, "restart_singbox", restart_singbox),
+        "awg0": getattr(ctx, "restart_amneziawg", restart_amneziawg),
+        "wg0": getattr(ctx, "restart_wireguard", restart_wireguard),
+        "tun0": getattr(ctx, "restart_openvpn", restart_openvpn),
+    }
 
     target = get_backend()
-    if target == "sing0":
-        return rst_singbox()
-    elif target == "awg0":
-        return rst_amnezia()
-    elif target == "wg0":
-        return rst_wireguard()
-    elif target == "tun0":
-        return rst_openvpn()
+    if target in rst_map:
+        return rst_map[target]()
 
     active_if, _ = get_iface()
-    if active_if == "sing0":
-        return rst_singbox()
-    elif active_if == "awg0":
-        return rst_amnezia()
-    elif active_if == "wg0":
-        return rst_wireguard()
-    elif active_if == "tun0" and chk_vpn():
-        return rst_openvpn()
+    if active_if in rst_map and (active_if != "tun0" or chk_vpn()):
+        return rst_map[active_if]()
 
-    sing_conf = get_path("/etc/sing-box/config.json")
-    if os.path.exists(sing_conf):
-        logger("Auto mode: detecting configured Sing-box backend (sing0)...")
-        if rst_singbox():
-            return True
+    for path, iface, desc in [
+        ("/etc/sing-box/config.json", "sing0", "Sing-box backend (sing0)"),
+        ("/etc/amnezia/amneziawg/awg0.conf", "awg0", "AmneziaWG backend (awg0)"),
+        ("/etc/wireguard/wg0.conf", "wg0", "WireGuard backend (wg0)"),
+    ]:
+        if os.path.exists(get_path(path)):
+            logger(f"Auto mode: detecting configured {desc}...")
+            if rst_map[iface]():
+                return True
 
-    awg_conf = get_path("/etc/amnezia/amneziawg/awg0.conf")
-    if os.path.exists(awg_conf):
-        logger("Auto mode: detecting configured AmneziaWG backend (awg0)...")
-        if rst_amnezia():
-            return True
-
-    wg_conf = get_path("/etc/wireguard/wg0.conf")
-    if os.path.exists(wg_conf):
-        logger("Auto mode: detecting configured WireGuard backend (wg0)...")
-        if rst_wireguard():
-            return True
-
-    return rst_openvpn()
+    return rst_map["tun0"]()

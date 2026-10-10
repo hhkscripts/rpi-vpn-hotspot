@@ -5,11 +5,42 @@ Command Line Interface parser and dispatcher for Hotspot Manager.
 
 import argparse
 import json
+import os
 import sys
 
 from .constants import CONFIG
 from .context import Context
+from .detection import get_connected_clients
 from .runner import check_docker_container
+
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+
+
+def _acquire_cli_lock():
+    if fcntl is None:
+        return None
+    lock_file = "/run/lock/hotspot-manager-cli.lock"
+    try:
+        os.makedirs(os.path.dirname(lock_file), exist_ok=True)
+    except Exception:
+        lock_file = "/tmp/hotspot-manager-cli.lock"
+    try:
+        import time
+
+        fd = open(lock_file, "w")
+        start = time.time()
+        while time.time() - start < 15:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return fd
+            except (BlockingIOError, OSError):
+                time.sleep(0.5)
+        return False
+    except Exception:
+        return None
 
 
 def main() -> None:
@@ -44,6 +75,11 @@ def main() -> None:
         help="Switch VPN Unlimited exit country (e.g. sg, jp, direct)",
     )
     parser.add_argument(
+        "--rotate-ip",
+        action="store_true",
+        help="Rotate to next candidate IP endpoint for active country exit",
+    )
+    parser.add_argument(
         "--list-countries",
         action="store_true",
         help="List available VPN Unlimited country profiles",
@@ -73,6 +109,16 @@ def main() -> None:
         help="Recompile and apply modular routes to AdGuard Home and ipsets",
     )
     parser.add_argument(
+        "--watchdog-vpn",
+        action="store_true",
+        help="Check VPN health and auto-rotate candidate IP or restart if down",
+    )
+    parser.add_argument(
+        "--watchdog",
+        action="store_true",
+        help="Run comprehensive health watchdog for both VPN and DNS resilience",
+    )
+    parser.add_argument(
         "--watchdog-dns",
         action="store_true",
         help="Check AdGuard container health and auto-failover to fallback DNS if down",
@@ -90,10 +136,42 @@ def main() -> None:
     if len(sys.argv) == 1:
         args.status = True
 
+    mutating = bool(
+        args.restart
+        or args.restart_vpn
+        or args.fix
+        or args.switch_vpn
+        or args.reality_server
+        or args.unlimited_country
+        or args.rotate_ip
+        or args.set_ipv6
+        or args.set_adguard
+        or args.refresh_routes
+        or args.watchdog
+        or args.watchdog_vpn
+        or args.watchdog_dns
+    )
+    if mutating:
+        lock_fd = _acquire_cli_lock()
+        if lock_fd is False:
+            print("Notice: Another hotspot task is in progress. Please retry.")
+            sys.exit(1)
+
     if args.refresh_routes:
         getattr(ctx, "refresh_routes", getattr(ctx, "refresh_github_routes"))()
         print("Routes refreshed successfully.")
         sys.exit(0)
+
+    if args.watchdog_vpn:
+        ok, state = getattr(ctx, "ensure_vpn_resilience")()
+        print(f"VPN Watchdog: {state}")
+        sys.exit(0 if ok else 1)
+
+    if args.watchdog:
+        vpn_ok, vpn_state = getattr(ctx, "ensure_vpn_resilience")()
+        dns_ok, dns_state = getattr(ctx, "ensure_adguard_resilience")()
+        print(f"Watchdog: VPN={vpn_state}, DNS={dns_state}")
+        sys.exit(0 if (vpn_ok and dns_ok) else 1)
 
     if args.watchdog_dns:
         ok, state = getattr(ctx, "ensure_adguard_resilience")()
@@ -113,6 +191,14 @@ def main() -> None:
 
     if args.unlimited_country:
         success = getattr(ctx, "switch_unlimited_country")(args.unlimited_country)
+        output = getattr(ctx, "print_status")(
+            getattr(ctx, "get_status")(), telegram_format=telegram_format
+        )
+        print(output)
+        sys.exit(0 if success else 1)
+
+    if args.rotate_ip:
+        success = getattr(ctx, "rotate_unlimited_country_ip")()
         output = getattr(ctx, "print_status")(
             getattr(ctx, "get_status")(), telegram_format=telegram_format
         )
@@ -177,7 +263,13 @@ def main() -> None:
         print(output)
 
     if args.clients:
-        print(f"Clients: {getattr(ctx, 'check_clients')()}")
+        connected = getattr(
+            ctx, "get_connected_clients", get_connected_clients
+        )()
+        count = len(connected) if connected else getattr(ctx, "check_clients")()
+        print(f"Clients: {count}")
+        for dev in (connected or []):
+            print(f"  - {dev['hostname']} ({dev['ip']} / {dev['mac']})")
 
     if args.restart_vpn:
         if not getattr(ctx, "restart_vpn")():

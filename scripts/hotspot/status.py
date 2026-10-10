@@ -192,6 +192,9 @@ def get_status() -> HotspotStatus:
     active_if, backend_name = get_iface()
     _vpn_ip_ok, vpn_ip = chk_vpn_ip() if vpn_connected else (False, None)
     external_ok, external_ip = chk_ext_ip() if vpn_connected else (False, None)
+    internet_working = chk_net()
+    if active_if == "sing0" and not external_ok and not internet_working:
+        vpn_connected = False
 
     services_status = {s: chk_svc(s) for s in cfg.get("services", [])}
 
@@ -232,7 +235,48 @@ def get_status() -> HotspotStatus:
         },
         "hotspot": {"broadcasting": chk_hotspot(), "clients": clients},
         "dns_working": chk_dns(),
-        "internet": chk_net(),
+        "internet": internet_working,
         "ping": chk_ping(),
         "ipv6_protection": get_ipv6(),
     }
+
+
+def ensure_vpn_resilience() -> tuple[bool, str]:
+    """Check VPN connection health and automatically rotate candidate IP or recover.
+
+    Returns (success, state_description).
+    """
+    ctx = Context.get()
+    logger = getattr(ctx, "log", log)
+    chk_vpn = getattr(ctx, "check_vpn")
+    chk_ext_ip = getattr(ctx, "check_vpn_external_ip")
+    chk_net = getattr(ctx, "check_internet", check_internet)
+    get_iface = getattr(ctx, "get_active_vpn_interface")
+    get_country = getattr(ctx, "get_configured_unlimited_country")
+    rotate_ip = getattr(ctx, "rotate_unlimited_country_ip")
+    restart_vpn = getattr(ctx, "restart_vpn")
+
+    vpn_connected = chk_vpn()
+    active_if, _backend = get_iface()
+
+    if vpn_connected:
+        ext_ok, _ = chk_ext_ip()
+        net_ok = chk_net()
+        if ext_ok or net_ok:
+            return True, "vpn_healthy"
+
+    logger(
+        f"VPN on {active_if} appears down or stalled. Attempting recovery...",
+        "WARN",
+    )
+    country = get_country()
+    if active_if == "sing0" and country and country != "direct":
+        logger(f"Rotating candidate IP for country [{country.upper()}]...", "INFO")
+        if rotate_ip(country):
+            return True, "vpn_rotated_ip"
+
+    logger(f"Restarting VPN service for {active_if}...", "INFO")
+    if restart_vpn(active_if):
+        return True, "vpn_recovered"
+
+    return False, "vpn_failed"

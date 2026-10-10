@@ -8,7 +8,12 @@ import time
 
 from .constants import CONFIG
 from .context import Context
-from .runner import get_configured_backend, get_vless_display_name, run_args
+from .runner import (
+    get_configured_backend,
+    get_host_path,
+    get_vless_display_name,
+    run_args,
+)
 
 
 def get_active_vpn_interface() -> tuple[str, str]:
@@ -200,3 +205,58 @@ def wait_for_interface(interface: str, timeout: int = 60) -> bool:
             return True
         time.sleep(1)
     return False
+
+
+def get_connected_clients() -> list[dict]:
+    """Parse dnsmasq leases to return connected client device details."""
+    ctx = Context.get()
+    get_path = getattr(ctx, "get_host_path", get_host_path)
+
+    lease_files = [
+        get_path("/var/lib/misc/dnsmasq.leases"),
+        "/var/lib/misc/dnsmasq.leases",
+        "/host/var/lib/misc/dnsmasq.leases",
+    ]
+    devices = []
+    for lfile in lease_files:
+        if os.path.exists(lfile):
+            try:
+                with open(lfile, "r", encoding="utf-8") as f:
+                    for line in f:
+                        parts = line.strip().split()
+                        if len(parts) >= 4:
+                            devices.append(
+                                {
+                                    "mac": parts[1],
+                                    "ip": parts[2],
+                                    "hostname": (
+                                        parts[3] if parts[3] != "*" else "Unknown"
+                                    ),
+                                }
+                            )
+                if devices:
+                    break
+            except Exception:
+                pass
+
+    if not devices:
+        runner = getattr(ctx, "run_args", run_args)
+        ok, out, _ = runner(["ip", "neigh", "show"])
+        if ok and out:
+            for line in out.splitlines():
+                parts = line.strip().split()
+                if (
+                    len(parts) >= 5
+                    and "lladdr" in parts
+                    and parts[-1] in ("REACHABLE", "DELAY", "STALE")
+                ):
+                    idx = parts.index("lladdr")
+                    if idx + 1 < len(parts):
+                        devices.append(
+                            {
+                                "ip": parts[0],
+                                "mac": parts[idx + 1],
+                                "hostname": "Unknown",
+                            }
+                        )
+    return devices

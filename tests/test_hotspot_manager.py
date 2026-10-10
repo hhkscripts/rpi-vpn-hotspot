@@ -7,7 +7,11 @@ from tests.hotspot.test_detection import VpnConnectionDetectionTests
 from tests.hotspot.test_ipv6 import Ipv6ModeTests
 from tests.hotspot.test_runner import DockerServiceTests, RunArgsTests
 from tests.hotspot.test_singbox import CountryProfileTests
-from tests.hotspot.test_vpn import RestartVpnTests, SingboxBackendTests
+from tests.hotspot.test_vpn import (
+    RestartVpnTests,
+    SingboxBackendTests,
+    VpnResilienceWatchdogTests,
+)
 
 __all__ = [
     "RunArgsTests",
@@ -18,6 +22,7 @@ __all__ = [
     "AdGuardStateTests",
     "SingboxBackendTests",
     "CountryProfileTests",
+    "VpnResilienceWatchdogTests",
 ]
 
 if __name__ == "__main__":

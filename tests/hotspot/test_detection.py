@@ -67,6 +67,40 @@ class VpnConnectionDetectionTests(unittest.TestCase):
             call_args = mock_run.call_args[0][0]
             self.assertIn("https://custom.ip.me", call_args)
 
+    def test_get_connected_clients_from_leases(self):
+        lease_content = (
+            "1700000000 00:11:22:33:44:55 192.168.12.50 my-phone 01:00:11:22:33:44:55\n"
+            "1700000001 aa:bb:cc:dd:ee:ff 192.168.12.51 * *\n"
+        )
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", unittest.mock.mock_open(read_data=lease_content)),
+        ):
+            clients = hotspot_manager.get_connected_clients()
+            self.assertEqual(len(clients), 2)
+            self.assertEqual(clients[0]["ip"], "192.168.12.50")
+            self.assertEqual(clients[0]["mac"], "00:11:22:33:44:55")
+            self.assertEqual(clients[0]["hostname"], "my-phone")
+            self.assertEqual(clients[1]["hostname"], "Unknown")
+
+    def test_get_connected_clients_fallback_ip_neigh(self):
+        neigh_output = (
+            "192.168.12.60 dev wlan0 lladdr 12:34:56:78:9a:bc REACHABLE\n"
+            "192.168.12.61 dev wlan0 lladdr 12:34:56:78:9a:bd FAILED\n"
+        )
+        with (
+            patch("os.path.exists", return_value=False),
+            patch.object(
+                hotspot_manager,
+                "run_args",
+                return_value=(True, neigh_output, ""),
+            ),
+        ):
+            clients = hotspot_manager.get_connected_clients()
+            self.assertEqual(len(clients), 1)
+            self.assertEqual(clients[0]["ip"], "192.168.12.60")
+            self.assertEqual(clients[0]["mac"], "12:34:56:78:9a:bc")
+
 
 if __name__ == "__main__":
     unittest.main()
