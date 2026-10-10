@@ -42,3 +42,12 @@
 # Control D DoH
 ||freedns.controld.com^
 ||dns.controld.com^
+
+# Captive Portal & Mobile Network Connectivity Checks (Always Whitelist)
+# Prevents "No Internet" exclamation mark on Android, iOS, Windows, macOS devices
+@@||connectivitycheck.gstatic.com^
+@@||connectivitycheck.android.com^
+@@||clients3.google.com^
+@@||captive.apple.com^
+@@||msftconnecttest.com^
+@@||detectportal.firefox.com^

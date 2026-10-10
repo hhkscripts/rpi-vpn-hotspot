@@ -18,12 +18,12 @@ elif [ -d "$PROJECT_DIR/configs/routes" ]; then
     ROUTES_DIR="$PROJECT_DIR/configs/routes"
 elif [ -n "$REPO_ROOT" ] && [ -d "$REPO_ROOT/configs/routes" ]; then
     ROUTES_DIR="$REPO_ROOT/configs/routes"
+elif [ -d "/etc/goodwifi/routes" ]; then
+    ROUTES_DIR="/etc/goodwifi/routes"
 elif [ -d "/home/hhk/Projects/vpn/configs/routes" ]; then
     ROUTES_DIR="/home/hhk/Projects/vpn/configs/routes"
 elif [ -d "/home/pi/Projects/vpn/configs/routes" ]; then
     ROUTES_DIR="/home/pi/Projects/vpn/configs/routes"
-elif [ -d "/etc/goodwifi/routes" ]; then
-    ROUTES_DIR="/etc/goodwifi/routes"
 else
     ROUTES_DIR="$PROJECT_DIR/configs/routes"
 fi
@@ -99,7 +99,7 @@ fi
 
 # Ensure ipsets exist (when not in dry-run)
 if [ "$DRY_RUN" -eq 0 ]; then
-    ipset create "$LOCAL_ROUTES_IPSET" hash:ip maxelem 65536 2>/dev/null || true
+    ipset create "$LOCAL_ROUTES_IPSET" hash:net family inet maxelem 65536 2>/dev/null || true
     ipset create "$VPN_ROUTES_IPSET" hash:net family inet maxelem 131072 2>/dev/null || true
     ipset create "$VPN_DOMAINS_IPSET" hash:ip maxelem 65536 2>/dev/null || true
 fi

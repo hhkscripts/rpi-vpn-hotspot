@@ -2,4 +2,5 @@
 # Comment out any file you wish to disable, or add new file paths here.
 github-routes.txt
 linux-repo-routes.txt
+telegram-routes.txt
 custom-vpn-routes.txt
