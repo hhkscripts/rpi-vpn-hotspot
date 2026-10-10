@@ -138,5 +138,7 @@ async def clients_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     stdout, stderr, _ = await loop.run_in_executor(
         None, run_hotspot_command, ["--clients"]
     )
-    response = stdout if stdout else stderr
+    response = (stdout if stdout else stderr).strip()
+    if not response:
+        response = "Clients: 0 (No connected devices)"
     await update.message.reply_text(response, reply_markup=MAIN_KEYBOARD)

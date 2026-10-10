@@ -56,8 +56,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Entry point for /start command."""
-    if update.effective_user is None or not check_authorization(
-        update.effective_user.id
-    ):
+    if update.effective_user is None:
         return
     await help_command(update, context)

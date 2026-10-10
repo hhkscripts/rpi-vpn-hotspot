@@ -102,6 +102,9 @@ sudo rm -rf /etc/goodwifi/routes 2>/dev/null || true
 restore_or_remove /etc/goodwifi/github-ipv4-ranges.txt "$BACKUP_DIR"
 restore_or_remove /etc/goodwifi/goodwifi.conf "$BACKUP_DIR"
 restore_or_remove /etc/sysctl.d/99-goodwifi.conf "$BACKUP_DIR"
+restore_or_remove /etc/logrotate.d/goodwifi "$BACKUP_DIR"
+sudo systemctl disable --now goodwifi-watchdog.timer 2>/dev/null || true
+sudo rm -f /etc/systemd/system/goodwifi-watchdog.service /etc/systemd/system/goodwifi-watchdog.timer 2>/dev/null || true
 sudo rm -f /etc/systemd/resolved.conf.d/adguard-disable-stub.conf 2>/dev/null || true
 if systemctl is-active systemd-resolved >/dev/null 2>&1; then
   sudo systemctl restart systemd-resolved 2>/dev/null || true

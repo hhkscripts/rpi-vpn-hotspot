@@ -24,6 +24,7 @@ from telegram.ext import (
     Application,
     CallbackQueryHandler,
     CommandHandler,
+    ContextTypes,
     MessageHandler,
     filters,
 )
@@ -61,6 +62,11 @@ from telegrambot.handlers.vpn import (
     switch_vpn_callback,
     switch_vpn_command,
 )
+
+
+async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log errors caused by Updates."""
+    logger.error("Exception while handling update: %s", context.error, exc_info=context.error)
 
 
 async def _post_init(app: Application) -> None:
@@ -114,6 +120,9 @@ def create_application() -> Application:
     app.add_handler(
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_message)
     )
+
+    # Global error handler
+    app.add_error_handler(_error_handler)
 
     return app
 

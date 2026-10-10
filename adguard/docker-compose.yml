@@ -3,6 +3,7 @@ services:
     image: adguard/adguardhome:latest
     container_name: adguardhome
     restart: unless-stopped
+    mem_limit: 256m
     network_mode: host
     environment:
       TZ: ${TZ:-Asia/Yangon}

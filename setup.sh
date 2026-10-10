@@ -27,6 +27,9 @@ required_files=(
   "$CONFIG_DIR/dhcpcd.conf"
   "$CONFIG_DIR/20-hotspot-manager"
   "$CONFIG_DIR/90-hotspot-vpn-policy"
+  "$CONFIG_DIR/goodwifi-watchdog.service"
+  "$CONFIG_DIR/goodwifi-watchdog.timer"
+  "$CONFIG_DIR/goodwifi.logrotate"
   "$SCRIPT_DIR/hotspot-manager.py"
   "$SCRIPT_DIR/hotspot/__init__.py"
   "$SCRIPT_DIR/github-vpn-routes.sh"
@@ -184,6 +187,12 @@ ensure_resolver_port_available() {
 DNSStubListener=no
 RESOLVED_EOF
       sudo systemctl restart systemd-resolved 2>/dev/null || true
+    fi
+    if [ -L /etc/resolv.conf ] && [ "$(readlink /etc/resolv.conf 2>/dev/null)" = "/run/systemd/resolve/stub-resolv.conf" ]; then
+      if [ -f /run/systemd/resolve/resolv.conf ]; then
+        log_info "Updating /etc/resolv.conf symlink to /run/systemd/resolve/resolv.conf"
+        sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+      fi
     fi
   fi
 }
@@ -440,6 +449,9 @@ rm -f "$tmp_nm"
 
 copy_file "$CONFIG_DIR/20-hotspot-manager" /etc/NetworkManager/dispatcher.d/20-hotspot-manager 0755
 copy_file "$CONFIG_DIR/90-hotspot-vpn-policy" /etc/NetworkManager/dispatcher.d/90-hotspot-vpn-policy 0755
+copy_file "$CONFIG_DIR/goodwifi-watchdog.service" /etc/systemd/system/goodwifi-watchdog.service 0644
+copy_file "$CONFIG_DIR/goodwifi-watchdog.timer" /etc/systemd/system/goodwifi-watchdog.timer 0644
+copy_file "$CONFIG_DIR/goodwifi.logrotate" /etc/logrotate.d/goodwifi 0644
 
 log_info "Configuring dhcpcd $HOTSPOT_IF block"
 backup_file /etc/dhcpcd.conf
@@ -460,8 +472,10 @@ log_info "Installing manager script from scripts/"
 copy_file "$SCRIPT_DIR/hotspot-manager.py" /usr/local/bin/hotspot-manager.py 0755
 sudo mkdir -p /usr/local/lib/hotspot /usr/local/bin/hotspot
 if [ -d "$SCRIPT_DIR/hotspot" ]; then
+  sudo rm -rf /usr/local/lib/hotspot/* /usr/local/bin/hotspot/*
   sudo cp -r "$SCRIPT_DIR/hotspot/"* /usr/local/lib/hotspot/
   sudo cp -r "$SCRIPT_DIR/hotspot/"* /usr/local/bin/hotspot/
+  sudo chmod -R 0755 /usr/local/lib/hotspot /usr/local/bin/hotspot
 fi
 copy_file "$SCRIPT_DIR/github-vpn-routes.sh" /usr/local/bin/github-vpn-routes.sh 0755
 copy_file "$SCRIPT_DIR/apply-routes.sh" /usr/local/bin/apply-routes.sh 0755
@@ -497,10 +511,18 @@ tmp_sysctl="$(mktemp)"
 cat <<'SYSCTL_EOF' > "$tmp_sysctl"
 net.ipv4.ip_forward=1
 net.ipv4.conf.all.forwarding=1
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
 SYSCTL_EOF
 copy_file "$tmp_sysctl" /etc/sysctl.d/99-goodwifi.conf 0644
 rm -f "$tmp_sysctl"
 sudo sysctl -p /etc/sysctl.d/99-goodwifi.conf 2>/dev/null || sudo sysctl --system 2>/dev/null || true
+
+log_info "Configuring systemd hardware watchdog timer"
+if [ -f /etc/systemd/system.conf ]; then
+  ensure_line 'RuntimeWatchdogSec=15s' /etc/systemd/system.conf
+  ensure_line 'RebootWatchdogSec=2min' /etc/systemd/system.conf
+fi
 
 sudo systemctl stop wpa_supplicant 2>/dev/null || true
 sudo systemctl disable wpa_supplicant 2>/dev/null || true
@@ -537,8 +559,9 @@ if [ -f /etc/wireguard/wg0.conf ]; then
   sudo systemctl enable wg-quick@wg0 2>/dev/null || true
 fi
 if [ -f /etc/sing-box/config.json ]; then
-  sudo systemctl enable sing-box 2>/dev/null || true
+  sudo systemctl enable xray sing-box 2>/dev/null || true
 fi
+sudo systemctl enable --now goodwifi-watchdog.timer 2>/dev/null || true
 sudo systemctl restart hostapd dnsmasq 2>/dev/null || true
 restart_adguard_if_configured
 restart_telegrambot_if_configured
