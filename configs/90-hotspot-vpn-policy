@@ -316,14 +316,20 @@ apply_policy() {
     iptables -t mangle -C FORWARD -i "$VPN_IF" -d "$HOTSPOT_SUBNET" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
         iptables -t mangle -A FORWARD -i "$VPN_IF" -d "$HOTSPOT_SUBNET" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
 
-    iptables -C INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT 2>/dev/null ||         iptables -A INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT
-    iptables -C INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT 2>/dev/null ||         iptables -A INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT
-    iptables -C INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT 2>/dev/null ||         iptables -A INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT
+    iptables -C INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT 2>/dev/null || \
+        iptables -A INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT
+    iptables -C INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT 2>/dev/null || \
+        iptables -A INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT
+    iptables -C INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT 2>/dev/null || \
+        iptables -A INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT
+    iptables -C INPUT -i "$HOTSPOT_IF" -p tcp --dport 22 -j ACCEPT 2>/dev/null || \
+        iptables -A INPUT -i "$HOTSPOT_IF" -p tcp --dport 22 -j ACCEPT
+    iptables -C INPUT -i "$HOTSPOT_IF" -p udp --dport 5353 -j ACCEPT 2>/dev/null || \
+        iptables -A INPUT -i "$HOTSPOT_IF" -p udp --dport 5353 -j ACCEPT
+    iptables -C INPUT -i "$HOTSPOT_IF" -p icmp -j ACCEPT 2>/dev/null || \
+        iptables -A INPUT -i "$HOTSPOT_IF" -p icmp -j ACCEPT
     iptables -C INPUT -i "$HOTSPOT_IF" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
         iptables -A INPUT -i "$HOTSPOT_IF" -m state --state RELATED,ESTABLISHED -j ACCEPT
-    # Host Isolation: block client access to Pi management ports (SSH 22, Web 3000, Bot 8081)
-    iptables -C INPUT -i "$HOTSPOT_IF" -s "$HOTSPOT_SUBNET" -j REJECT --reject-with icmp-port-unreachable 2>/dev/null || \
-        iptables -A INPUT -i "$HOTSPOT_IF" -s "$HOTSPOT_SUBNET" -j REJECT --reject-with icmp-port-unreachable
 
     # Force all client DNS (port 53) to AdGuard Home ($HOTSPOT_IP:53)
     iptables -t nat -C PREROUTING -i "$HOTSPOT_IF" -p udp --dport 53 ! -d "$HOTSPOT_IP" -j DNAT --to-destination "$HOTSPOT_IP:53" 2>/dev/null ||         iptables -t nat -A PREROUTING -i "$HOTSPOT_IF" -p udp --dport 53 ! -d "$HOTSPOT_IP" -j DNAT --to-destination "$HOTSPOT_IP:53"
@@ -413,6 +419,9 @@ cleanup_policy() {
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT
+    remove_rule filter INPUT -i "$HOTSPOT_IF" -p tcp --dport 22 -j ACCEPT
+    remove_rule filter INPUT -i "$HOTSPOT_IF" -p udp --dport 5353 -j ACCEPT
+    remove_rule filter INPUT -i "$HOTSPOT_IF" -p icmp -j ACCEPT
     remove_rule filter INPUT -i "$HOTSPOT_IF" -s "$HOTSPOT_SUBNET" -j REJECT --reject-with icmp-port-unreachable
     remove_rule filter INPUT -i "$HOTSPOT_IF" -m state --state RELATED,ESTABLISHED -j ACCEPT
     ip rule del from "$HOTSPOT_SUBNET" table "$TABLE_ID" priority "$RULE_PRIORITY" 2>/dev/null || true
