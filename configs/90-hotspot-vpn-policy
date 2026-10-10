@@ -28,7 +28,7 @@ LEGACY_LOCAL_IPSET="local_bypass_domains"
 IPTABLES_CHAIN="${IPTABLES_CHAIN:-GOODWIFI_FORWARD}"
 IP6TABLES_CHAIN="${IP6TABLES_CHAIN:-GOODWIFI6_FORWARD}"
 MANAGEMENT_SUBNETS="${MANAGEMENT_SUBNETS:-10.8.0.0/24 192.168.100.0/24 192.168.1.0/24}"
-IPV6_LEAK_PROTECTION="${IPV6_LEAK_PROTECTION:-drop}"
+IPV6_LEAK_PROTECTION="${IPV6_LEAK_PROTECTION:-reject}"
 
 is_vpn_action() {
     case "$1" in
@@ -100,7 +100,7 @@ if [ -z "${VPN_MTU:-}" ]; then
     if [ "$VPN_IF" = "awg0" ] || [ "$VPN_IF" = "wg0" ]; then
         VPN_MTU="1280"
     elif [ "$VPN_IF" = "sing0" ]; then
-        VPN_MTU="1500"
+        VPN_MTU="1380"
     else
         VPN_MTU="${VPN_MTU:-1400}"
     fi
@@ -204,7 +204,7 @@ apply_policy() {
     fi
     ipset create "$VPN_IPSET" hash:ip 2>/dev/null || true
     ipset create "$VPN_ROUTES_IPSET" hash:net family inet 2>/dev/null || true
-    ipset create "$LOCAL_ROUTES_IPSET" hash:ip 2>/dev/null || true
+    ipset create "$LOCAL_ROUTES_IPSET" hash:net family inet 2>/dev/null || true
     if [ "$VPN_ROUTES_IPSET" != "$LEGACY_GITHUB_IPSET" ]; then
         remove_rule mangle OUTPUT -m set --match-set "$LEGACY_GITHUB_IPSET" dst -j MARK --set-mark "$FWMARK"
         ipset destroy "$LEGACY_GITHUB_IPSET" 2>/dev/null || true
@@ -220,6 +220,10 @@ apply_policy() {
 
     remove_rule mangle OUTPUT -m set --match-set "$VPN_IPSET" dst -j MARK --set-mark "$FWMARK"
     remove_rule mangle OUTPUT -m set --match-set "$GITHUB_IPSET" dst -j MARK --set-mark "$FWMARK"
+    for dns_ip in 8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112 208.67.222.222 208.67.220.220; do
+        remove_rule mangle OUTPUT -d "$dns_ip" -p udp --dport 53 -j MARK --set-mark "$FWMARK"
+        remove_rule mangle OUTPUT -d "$dns_ip" -p tcp --dport 53 -j MARK --set-mark "$FWMARK"
+    done
     remove_rule mangle OUTPUT -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
     remove_rule mangle POSTROUTING -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     remove_rule nat POSTROUTING -o "$VPN_IF" -j MASQUERADE
@@ -248,6 +252,7 @@ apply_policy() {
     fi
     ip route replace "$HOTSPOT_SUBNET" dev "$HOTSPOT_IF" table "$TABLE_ID" 2>/dev/null || true
     ip route replace default dev "$VPN_IF" table "$TABLE_ID" 2>/dev/null || true
+    ip route replace unreachable default table "$TABLE_ID" metric 1024 2>/dev/null || true
 
     ip rule del from "$HOTSPOT_SUBNET" table "$TABLE_ID" priority "$RULE_PRIORITY" 2>/dev/null || true
     ip rule add from "$HOTSPOT_SUBNET" table "$TABLE_ID" priority "$RULE_PRIORITY" 2>/dev/null || true
@@ -280,6 +285,12 @@ apply_policy() {
         iptables -t mangle -A OUTPUT -m set --match-set "$VPN_IPSET" dst -j MARK --set-mark "$FWMARK"
     iptables -t mangle -C OUTPUT -m set --match-set "$GITHUB_IPSET" dst -j MARK --set-mark "$FWMARK" 2>/dev/null || \
         iptables -t mangle -A OUTPUT -m set --match-set "$GITHUB_IPSET" dst -j MARK --set-mark "$FWMARK"
+    for dns_ip in 8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112 208.67.222.222 208.67.220.220; do
+        iptables -t mangle -C OUTPUT -d "$dns_ip" -p udp --dport 53 -j MARK --set-mark "$FWMARK" 2>/dev/null || \
+            iptables -t mangle -A OUTPUT -d "$dns_ip" -p udp --dport 53 -j MARK --set-mark "$FWMARK"
+        iptables -t mangle -C OUTPUT -d "$dns_ip" -p tcp --dport 53 -j MARK --set-mark "$FWMARK" 2>/dev/null || \
+            iptables -t mangle -A OUTPUT -d "$dns_ip" -p tcp --dport 53 -j MARK --set-mark "$FWMARK"
+    done
     iptables -t mangle -C OUTPUT -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200 2>/dev/null || \
         iptables -t mangle -A OUTPUT -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
     iptables -t mangle -C POSTROUTING -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
@@ -296,6 +307,8 @@ apply_policy() {
     done
     iptables -A "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -o "$VPN_IF" -s "$HOTSPOT_SUBNET" -j ACCEPT
     iptables -A "$IPTABLES_CHAIN" -i "$VPN_IF" -o "$HOTSPOT_IF" -d "$HOTSPOT_SUBNET" -m state --state RELATED,ESTABLISHED -j ACCEPT
+    # Fail-closed Kill Switch: reject client traffic attempting to route without active VPN or matching bypass
+    iptables -A "$IPTABLES_CHAIN" -i "$HOTSPOT_IF" -s "$HOTSPOT_SUBNET" -j REJECT --reject-with icmp-net-prohibited
     remove_rule mangle FORWARD -s "$HOTSPOT_SUBNET" -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
     remove_rule mangle FORWARD -s "$HOTSPOT_SUBNET" -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     iptables -t mangle -C FORWARD -s "$HOTSPOT_SUBNET" -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null ||         iptables -t mangle -A FORWARD -s "$HOTSPOT_SUBNET" -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
@@ -306,6 +319,11 @@ apply_policy() {
     iptables -C INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT 2>/dev/null ||         iptables -A INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT
     iptables -C INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT 2>/dev/null ||         iptables -A INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT
     iptables -C INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT 2>/dev/null ||         iptables -A INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT
+    iptables -C INPUT -i "$HOTSPOT_IF" -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || \
+        iptables -A INPUT -i "$HOTSPOT_IF" -m state --state RELATED,ESTABLISHED -j ACCEPT
+    # Host Isolation: block client access to Pi management ports (SSH 22, Web 3000, Bot 8081)
+    iptables -C INPUT -i "$HOTSPOT_IF" -s "$HOTSPOT_SUBNET" -j REJECT --reject-with icmp-port-unreachable 2>/dev/null || \
+        iptables -A INPUT -i "$HOTSPOT_IF" -s "$HOTSPOT_SUBNET" -j REJECT --reject-with icmp-port-unreachable
 
     # Force all client DNS (port 53) to AdGuard Home ($HOTSPOT_IP:53)
     iptables -t nat -C PREROUTING -i "$HOTSPOT_IF" -p udp --dport 53 ! -d "$HOTSPOT_IP" -j DNAT --to-destination "$HOTSPOT_IP:53" 2>/dev/null ||         iptables -t nat -A PREROUTING -i "$HOTSPOT_IF" -p udp --dport 53 ! -d "$HOTSPOT_IP" -j DNAT --to-destination "$HOTSPOT_IP:53"
@@ -358,6 +376,10 @@ cleanup_policy() {
     remove_rule mangle OUTPUT -m set --match-set "$VPN_IPSET" dst -j MARK --set-mark "$FWMARK"
     remove_rule mangle OUTPUT -m set --match-set "$VPN_ROUTES_IPSET" dst -j MARK --set-mark "$FWMARK"
     remove_rule mangle OUTPUT -m set --match-set "$LEGACY_GITHUB_IPSET" dst -j MARK --set-mark "$FWMARK"
+    for dns_ip in 8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1 9.9.9.9 149.112.112.112 208.67.222.222 208.67.220.220; do
+        remove_rule mangle OUTPUT -d "$dns_ip" -p udp --dport 53 -j MARK --set-mark "$FWMARK"
+        remove_rule mangle OUTPUT -d "$dns_ip" -p tcp --dport 53 -j MARK --set-mark "$FWMARK"
+    done
     remove_rule mangle OUTPUT -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1200
     remove_rule mangle POSTROUTING -o "$VPN_IF" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     remove_rule mangle PREROUTING -s "$HOTSPOT_SUBNET" -m set --match-set "$LOCAL_ROUTES_IPSET" dst -j MARK --set-mark "$BYPASS_FWMARK"
@@ -391,6 +413,8 @@ cleanup_policy() {
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p udp --dport 67:68 -j ACCEPT
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p tcp --dport 53 -j ACCEPT
     remove_rule filter INPUT -i "$HOTSPOT_IF" -p udp --dport 53 -j ACCEPT
+    remove_rule filter INPUT -i "$HOTSPOT_IF" -s "$HOTSPOT_SUBNET" -j REJECT --reject-with icmp-port-unreachable
+    remove_rule filter INPUT -i "$HOTSPOT_IF" -m state --state RELATED,ESTABLISHED -j ACCEPT
     ip rule del from "$HOTSPOT_SUBNET" table "$TABLE_ID" priority "$RULE_PRIORITY" 2>/dev/null || true
     ip rule del fwmark "$FWMARK" table "$TABLE_ID" priority "$HOST_RULE_PRIORITY" 2>/dev/null || true
     ip rule del fwmark "$BYPASS_FWMARK" table main priority "$BYPASS_RULE_PRIORITY" 2>/dev/null || true
@@ -417,7 +441,7 @@ case "$ACTION" in
         fi
         if [ "$VPN_BACKEND" = "auto" ]; then
             other_if=""
-            for cand in awg0 wg0 tun0; do
+            for cand in sing0 awg0 wg0 tun0; do
                 if [ "$cand" != "$1" ] && ip -4 addr show "$cand" 2>/dev/null | grep -q "inet "; then
                     other_if="$cand"
                     break
